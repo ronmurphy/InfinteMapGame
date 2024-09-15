@@ -1,0 +1,2397 @@
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infinite Terrain</title>
+    <meta name="description" content="Expand your world in this infinite tile-based map building game. Place cards, discover events, and create your own unique landscape!">
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+            transition: background-color 10s;
+        }
+        #gameContainer {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+        #gameCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            touch-action: none;
+        }
+        #hand {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 5px;
+            z-index: 10;
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: 5px;
+            padding: 5px;
+        }
+        .card {
+            width: 25px;
+            height: 40px;
+            background-color: #f0f0f0;
+            border: 1px solid #333;
+            border-radius: 3px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        #eventLog {
+            width: 180px; 
+            height: 100px;
+            background-color: rgba(255, 255, 255, 0.8);
+            border: 1px solid #333;
+            padding: 5px;
+            overflow-y: auto;
+            font-size: 12px;
+        }
+        #startMenu {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            z-index: 100;
+            display: none;
+        }
+        #readyButton {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 18px;
+            cursor: pointer;
+        }
+        .popup {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            border: 2px solid #333;
+            border-radius: 10px;
+            padding: 20px;
+            z-index: 1000;
+            display: none;
+        }
+        .popupContent {
+            margin-bottom: 20px;
+        }
+        .closeButton {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            font-size: 20px;
+            cursor: pointer;
+            background: none;
+            border: none;
+        }
+        .actionButton {
+            display: block;
+            margin: 0 auto;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        #resourceBar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 40px;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.8);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            z-index: 10;
+        }
+        .resourceCard {
+            width: 30px;
+            height: 30px;
+            margin: 5px;
+            background-color: #f0f0f0;
+            border: 1px solid #333;
+            border-radius: 5px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-size: 12px;
+            cursor: move;
+            text-align: center;
+        }
+        #topRightDock {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: auto;
+            height: auto;
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: 5px;
+            padding: 5px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 10;
+        }
+        #buttonRow {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 5px;
+        }
+        #forgeCard, #moveTileButton, #collectAllButton, #roadBuildingButton, #helpButton {
+            width: 30px;
+            height: 30px;
+            margin: 0 5px;
+            background-color: #f0f0f0;
+            border: 1px solid #333;
+            border-radius: 5px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .forgeSlot {
+            width: 40px;
+            height: 40px;
+            border: 2px dashed #333;
+            border-radius: 5px;
+            margin: 10px;
+            display: inline-block;
+        }
+        #forgeButton {
+            display: block;
+            margin: 20px auto 0;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 20px;
+        }
+        #gameClock {
+            text-align: center;
+            margin-top: 10px;
+            width: 170px;
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: 5px;
+            padding: 5px 10px;
+            font-size: 18px;
+            z-index: 10;
+        }
+        #avatarPopup {
+            display: flex;
+            justify-content: space-between;
+            width: 80%;
+            max-width: 800px;
+        }
+        #avatarList {
+            width: 45%;
+            overflow-y: auto;
+            max-height: 300px;
+        }
+        #avatarStats {
+            width: 45%;
+        }
+        .avatarCard {
+            background-color: #f0f0f0;
+            border: 1px solid #333;
+            border-radius: 5px;
+            padding: 5px;
+            margin-bottom: 5px;
+            cursor: pointer;
+        }
+        .avatarCard.selected {
+            background-color: #d0d0d0;
+        }
+        #combatPopup {
+            text-align: center;
+        }
+        #combatLog {
+            margin-top: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        #recipesPopup {
+            max-height: 80%;
+            overflow-y: auto;
+        }
+        #saveLoadPopup {
+            text-align: center;
+        }
+        #saveLoadPopup button {
+            margin: 10px;
+            padding: 10px 20px;
+        }
+        #recipeButton {
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            font-size: 20px;
+            cursor: pointer;
+            background: none;
+            border: none;
+        }
+        #clearForgeButton {
+            position: absolute;
+            top: 5px;
+            left: 35px;
+            font-size: 20px;
+            cursor: pointer;
+            background: none;
+            border: none;
+        }
+        #avatarEquipment {
+            margin-top: 10px;
+            max-height: 100px;
+            overflow-y: auto;
+        }
+        .equipmentButton {
+            margin: 5px;
+            padding: 5px 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        #forgePopup {
+            display: flex;
+            justify-content: space-between;
+            width: 80%;
+            max-width: 800px;
+        }
+        #forgeSlots {
+            width: 45%;
+        }
+        #forgeRecipeList {
+            width: 45%;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        #forgeQuantity {
+            width: 50px;
+            margin-right: 10px;
+        }
+        #helpPopup {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80%;
+            max-width: 800px;
+            height: 80%;
+            background-color: white;
+            border: 2px solid #333;
+            border-radius: 10px;
+            padding: 20px;
+            z-index: 1000;
+            display: none;
+            overflow-y: auto;
+        }
+        #armoryPopup {
+            display: flex;
+            flex-direction: column;
+            width: 90%;
+            max-width: 1000px;
+            height: 90%;
+            max-height: 800px;
+        }
+        #armoryContent {
+            display: flex;
+            flex-grow: 1;
+            overflow: hidden;
+        }
+        #armoryAvatars, #armoryEquipment, #armoryQuests {
+            flex: 1;
+            flex-direction: column;
+            overflow-y: auto;
+            padding: 10px;
+            border: 1px solid #ccc;
+            margin: 5px;
+            max-height: 100%;;
+            overflow: auto;
+            max-height: 300px;
+        }
+        #armoryDetails {
+            flex-basis: 200px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            margin: 5px;
+            overflow-y: auto;
+        }
+        .armoryButton {
+            margin: 5px;
+            padding: 5px 10px;
+            background-color: #CD7F32;
+            color: black;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .popup {
+            background-color: #C0C0C0;
+        }
+        .dock {
+            background-color: rgba(64, 64, 64, 0.7);
+        }
+        .card {
+            background-color: white;
+            color: black;
+        }
+        .resourceCard {
+            background-color: #CD7F32;
+            color: black;
+        }
+        .listbox {
+            background-color: inherit;
+        }
+        .listbox button {
+            background-color: #D3D3D3;
+            color: black;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+        <div id="hand">
+            <button id="mapLockButton" class="card">🔐</button>
+        </div>
+        <div id="startMenu">
+            <h2>Infinite Terrain</h2>
+            <p>Controls:</p>
+            <ul>
+                <li>Click and drag or touch and move to pan the map</li>
+                <li>Pinch or use mouse wheel to zoom in/out</li>
+                <li>Click on a card in your hand, then click on the map to place it</li>
+                <li>Click on a placed tile for more information and to collect resources</li>
+            </ul>
+            <button id="readyButton">Ready</button>
+        </div>
+        <div id="popupBox" class="popup">
+            <button class="closeButton">&times;</button>
+            <div id="popupContent" class="popupContent"></div>
+            <button id="collectButton" class="actionButton">Collect Resources</button>
+        </div>
+        <div id="resourceBar"></div>
+        <div id="topRightDock">
+            <div id="buttonRow">
+                <div id="forgeCard">⚒️</div>
+                <div id="moveTileButton">👋</div>
+                <div id="collectAllButton">⭕</div>
+                <div id="roadBuildingButton">🛣️</div>
+                <button id="helpButton">❓</button>
+            </div>
+            <div id="eventLog"></div>
+            <div id="gameClock"></div>
+        </div>
+        <div id="forgePopup" class="popup">
+            <button class="closeButton">&times;</button>
+            <button id="recipeButton">❓</button>
+            <button id="clearForgeButton">🧹</button>
+            <div id="forgeSlots">
+                <div class="forgeSlot" id="forgeSlot1"></div>
+                <div class="forgeSlot" id="forgeSlot2"></div>
+                <div class="forgeSlot" id="forgeSlot3"></div>
+                <input type="number" id="forgeQuantity" min="1" value="1">
+                <button id="forgeButton">⚒️</button>
+            </div>
+            <div id="forgeRecipeList"></div>
+        </div>
+        <div id="avatarPopup" class="popup">
+            <button class="closeButton">&times;</button>
+            <div id="avatarList"></div>
+            <div id="avatarStats"></div>
+        </div>
+        <div id="combatPopup" class="popup">
+            <button class="closeButton">&times;</button>
+            <h3>Monster Camp Combat</h3>
+            <p id="monsterCount"></p>
+            <div id="avatarSelection"></div>
+            <button id="startCombatButton" class="actionButton">Start Combat</button>
+            <div id="combatLog"></div>
+            <button id="collectRewardButton" class="actionButton" style="display: none;">Collect Reward</button>
+        </div>
+        <div id="recipesPopup" class="popup">
+            <button class="closeButton">&times;</button>
+            <h3>Crafting Recipes</h3>
+            <div id="recipesList"></div>
+        </div>
+        <div id="saveLoadPopup" class="popup">
+            <button class="closeButton">&times;</button>
+            <h3>Save/Load Game</h3>
+            <button id="saveButton">Save Game</button>
+            <button id="loadButton">Load Game</button>
+            <button id="newGameButton">New Game</button>
+            <input type="file" id="loadFile" style="display: none;">
+        </div>
+        <div id="tombstonePopup" class="popup">
+            <button class="closeButton">&times;</button>
+            <h3>In Memory</h3>
+            <p id="tombstoneMessage"></p>
+            <div id="removedResources"></div>
+        </div>
+        <div id="helpPopup" class="popup">
+            <button class="closeButton">&times;</button>
+            <h2>Game Help</h2>
+            <div id="helpContent"></div>
+        </div>
+        <div id="armoryPopup" class="popup">
+            <button class="closeButton">&times;</button>
+            <h3>Armory</h3>
+            <div id="armoryContent">
+                <div id="armoryAvatars"></div>
+                <div id="armoryEquipment"></div>
+                <div id="armoryQuests"></div>
+            </div>
+            <div id="armoryDetails"></div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const hand = document.getElementById('hand');
+        const eventLog = document.getElementById('eventLog');
+        const startMenu = document.getElementById('startMenu');
+        const readyButton = document.getElementById('readyButton');
+        const popupBox = document.getElementById('popupBox');
+        const popupContent = document.getElementById('popupContent');
+        const collectButton = document.getElementById('collectButton');
+        const resourceBar = document.getElementById('resourceBar');
+        const forgeCard = document.getElementById('forgeCard');
+        const forgePopup = document.getElementById('forgePopup');
+        const forgeButton = document.getElementById('forgeButton');
+        const gameClock = document.getElementById('gameClock');
+        const moveTileButton = document.getElementById('moveTileButton');
+        const avatarPopup = document.getElementById('avatarPopup');
+        const avatarList = document.getElementById('avatarList');
+        const avatarStats = document.getElementById('avatarStats');
+        const collectAllButton = document.getElementById('collectAllButton');
+        const roadBuildingButton = document.getElementById('roadBuildingButton');
+        const combatPopup = document.getElementById('combatPopup');
+        const monsterCountElement = document.getElementById('monsterCount');
+        const avatarSelectionElement = document.getElementById('avatarSelection');
+        const startCombatButton = document.getElementById('startCombatButton');
+        const combatLogElement = document.getElementById('combatLog');
+        const collectRewardButton = document.getElementById('collectRewardButton');
+        const recipesPopup = document.getElementById('recipesPopup');
+        const recipesList = document.getElementById('recipesList');
+        const saveLoadPopup = document.getElementById('saveLoadPopup');
+        const saveButton = document.getElementById('saveButton');
+        const loadButton = document.getElementById('loadButton');
+        const newGameButton = document.getElementById('newGameButton');
+        const loadFile = document.getElementById('loadFile');
+        const recipeButton = document.getElementById('recipeButton');
+        const clearForgeButton = document.getElementById('clearForgeButton');
+        const topRightDock = document.getElementById('topRightDock');
+        const tombstonePopup = document.getElementById('tombstonePopup');
+        const tombstoneMessage = document.getElementById('tombstoneMessage');
+        const removedResources = document.getElementById('removedResources');
+        const forgeQuantity = document.getElementById('forgeQuantity');
+        const forgeRecipeList = document.getElementById('forgeRecipeList');
+        const helpButton = document.getElementById('helpButton');
+        const helpPopup = document.getElementById('helpPopup');
+        const helpContent = document.getElementById('helpContent');
+        const mapLockButton = document.getElementById('mapLockButton');
+        let selectedCards = [];
+        const armoryPopup =  document.getElementById('armoryPopup');
+        const armoryAvatars = document.getElementById('armoryAvatars');
+        const armoryEquipment = document.getElementById('armoryEquipment');
+        const armoryQuests = document.getElementById('armoryQuests');
+        const armoryDetails = document.getElementById('armoryDetails');
+
+        let gameStarted = false;
+        let mapData = {};
+        let cameraOffset = { x: 0, y: 0 };
+        let cameraZoom = 1;
+        let isDragging = false;
+        let lastZoomPinchDistance = 0;
+        let dragStart = { x: 0, y: 0 };
+        const TILE_SIZE = 50;        let selectedCard = null;
+        let resources = {};
+        let gameTime = 0;
+        let lastUpdateTime = Date.now();
+        let avatars = [];
+        let lastCollectAllTime = 0;
+        let isRoadBuildingMode = false;
+        let roadStartTile = null;
+        let roadEndTile = null;
+        let isMoveTileMode = false;
+        let tileToMove = null;
+        let mousePosition = { x: 0, y: 0 };
+        let isPc = !('ontouchstart' in window || navigator.maxTouchPoints > 0);
+        let hasArmoryTile = false;
+        let activeQuests = [];
+        let isMapLocked = false;
+        let selectedTiles = [];
+
+        const terrainTypes = [
+            { emoji: '🏰', name: 'Castle', resource: 'Royalty' },
+            { emoji: '🌳', name: 'Enchanted Forest', resource: 'Magic Wood' },
+            { emoji: '⛰️', name: 'Mystic Mountains', resource: 'Mithril' },
+            { emoji: '🌾', name: 'Elven Fields', resource: 'Elven Wheat' },
+            { emoji: '🏖️', name: 'Mermaid Cove', resource: 'Pearls' },
+            { emoji: '🌊', name: 'Dragon Sea', resource: 'Dragon Scales' },
+            { emoji: '🏜️', name: 'Sandworm Desert', resource: 'Spice' },
+            { emoji: '🌋', name: 'Phoenix Volcano', resource: 'Phoenix Feathers' },
+            { emoji: '🍄', name: 'Fairy Mushroom Grove', resource: 'Fairy Dust' },
+            { emoji: '❄️', name: 'Frost Giant Tundra', resource: 'Ice Crystals' },
+            { emoji: '🕳️', name: 'Dwarven Mines', resource: 'Precious Gems' },
+            { emoji: '🏛️', name: 'Ancient Ruins', resource: 'Ancient Artifacts' }
+        ];
+
+        const events = [
+            { emoji: '🏠', name: 'Town', description: 'You found a town! Trade for more cards.' },
+            { emoji: '👿', name: 'Monster Camp', description: 'A monster settlement! Defeat them for rewards.' },
+            { emoji: '🏛️', name: 'Ruins', description: 'Ancient ruins discovered. Explore for treasures!' }
+        ];
+
+        const recipes = [
+            { inputs: ['Magic Wood', 'Mithril'], output: 'Enchanted Tool', outputEmoji: '🔮' },
+            { inputs: ['Elven Wheat', 'Dragon Scales'], output: 'Dragon Bread', outputEmoji: '🍞' },
+            { inputs: ['Pearls', 'Phoenix Feathers'], output: 'Phoenix Pearl', outputEmoji: '🔥' },
+            { inputs: ['Spice', 'Ice Crystals'], output: 'Frost Spice', outputEmoji: '❄️' },
+            { inputs: ['Precious Gems', 'Fairy Dust'], output: 'Fairy Jewels', outputEmoji: '💎' },
+            { inputs: ['Ancient Artifacts', 'Magic Wood'], output: 'Mystic Artifact', outputEmoji: '📜' },
+            { inputs: ['Royalty', 'Dragon Scales'], output: 'Dragon Crown', outputEmoji: '👑' },
+            { inputs: ['Mithril', 'Precious Gems'], output: 'Mithril Jewelry', outputEmoji: '💍' },
+            { inputs: ['Phoenix Feathers', 'Ice Crystals'], output: 'Elemental Orb', outputEmoji: '🔮' },
+            { inputs: ['Fairy Dust', 'Elven Wheat'], output: 'Fairy Bread', outputEmoji: '🧚' },
+            { inputs: ['Spice', 'Dragon Scales'], output: 'Dragon Spice', outputEmoji: '🐉' },
+            { inputs: ['Pearls', 'Magic Wood'], output: 'Mermaid Wand', outputEmoji: '🧜' },
+            { inputs: ['Ancient Artifacts', 'Mithril'], output: 'Legendary Weapon', outputEmoji: '⚔️' },
+            { inputs: ['Royalty', 'Precious Gems'], output: 'Royal Scepter', outputEmoji: '🏰' },
+            { inputs: ['Ice Crystals', 'Magic Wood'], output: 'Frost Staff', outputEmoji: '🧙' },
+            { inputs: ['Fairy Dust', 'Phoenix Feathers'], output: 'Magic Potion', outputEmoji: '🧪' },
+            { inputs: ['Spice', 'Elven Wheat'], output: 'Elven Bread', outputEmoji: '🥖' },
+            { inputs: ['Dragon Scales', 'Mithril'], output: 'Dragon Armor', outputEmoji: '🛡️' },
+            { inputs: ['Pearls', 'Fairy Dust'], output: 'Fairy Pearl', outputEmoji: '✨' },
+            { inputs: ['Ancient Artifacts', 'Ice Crystals'], output: 'Frozen Relic', outputEmoji: '🗿' }
+        ];
+
+        const avatarEmojis = ['🧙', '🧝', '🧛', '🧚', '🦄', '🐉', '🦹', '🧞', '🧟', '🧜'];
+
+        const clockEmojis = [
+            '🕛', '🕐', '🕑', '🕒', '🕓', '🕔', '🕕', '🕖', '🕗', '🕘', '🕙', '🕚',
+            '🕧', '🕜', '🕝', '🕞', '🕟', '🕠', '🕡', '🕢', '🕣', '🕤', '🕥', '🕦'
+        ];
+
+        const tileResourceCombinations = {
+            'Dragon Sea': ['Mermaid Cove', 'Phoenix Volcano'],
+            'Mermaid Cove': ['Dragon Sea', 'Elven Fields'],
+            'Elven Fields': ['Mermaid Cove', 'Enchanted Forest'],
+            'Enchanted Forest': ['Elven Fields', 'Mystic Mountains'],
+            'Mystic Mountains': ['Enchanted Forest', 'Phoenix Volcano'],
+            'Phoenix Volcano': ['Mystic Mountains', 'Sandworm Desert'],
+            'Sandworm Desert': ['Phoenix Volcano', 'Elven Fields'],
+            'Castle': ['Enchanted Forest', 'Mystic Mountains'],
+            'Fairy Mushroom Grove': ['Enchanted Forest', 'Elven Fields'],
+            'Frost Giant Tundra': ['Mystic Mountains', 'Dragon Sea'],
+            'Dwarven Mines': ['Mystic Mountains', 'Phoenix Volcano'],
+            'Ancient Ruins': ['Sandworm Desert', 'Enchanted Forest']
+        };
+
+        const quests = [
+            { name: "Slay the Troll", description: "Go into combat against a troll that was seen in the frozen icy north so send an Avatar to investigate", days: 5, reward: "Troll Hide" },
+            { name: "Stop the Goose!", description: "A goose has become a menace to a village, investigate why", days: 3, reward: "Golden Egg" },
+            { name: "Dragon's Hoard", description: "A dragon has been hoarding treasure in a nearby mountain. Retrieve a valuable artifact.", days: 7, reward: "Dragon's Treasure" },
+            { name: "Enchanted Forest Mystery", description: "Strange lights have been seen in the Enchanted Forest. Investigate the phenomenon.", days: 4, reward: "Fairy Dust" },
+            { name: "Kraken's Revenge", description: "A kraken is terrorizing coastal villages. Defeat it and bring peace to the shores.", days: 6, reward: "Kraken Tentacle" },
+            { name: "Lost in the Labyrinth", description: "A group of adventurers is lost in an ancient labyrinth. Guide them to safety.", days: 5, reward: "Ancient Map" },
+            { name: "Goblin Market Mayhem", description: "Goblins have set up an illegal market in the town square. Shut it down.", days: 2, reward: "Confiscated Goods" },
+            { name: "Witch's Brew", description: "A local witch needs rare ingredients for a powerful potion. Gather them from across the land.", days: 4, reward: "Magical Elixir" },
+            { name: "Dwarven Dispute", description: "Settle a dispute between two dwarven clans over a newly discovered gem vein.", days: 3, reward: "Precious Gem" },
+            { name: "Ghostly Galleon", description: "A ghost ship has been spotted off the coast. Board it and uncover its secrets.", days: 5, reward: "Spectral Sails" },
+            { name: "Elemental Chaos", description: "Elemental creatures are running amok. Restore balance to the natural world.", days: 6, reward: "Elemental Essence" },
+            { name: "Fairy Ring Riddle", description: "Solve the riddle of the fairy rings appearing in the meadows.", days: 3, reward: "Fairy Wings" },
+            { name: "Volcanic Eruption", description: "A volcano is about to erupt. Find a way to prevent catastrophe.", days: 4, reward: "Obsidian Shard" },
+            { name: "Werewolf Hunt", description: "Track down and cure a werewolf terrorizing a small village.", days: 5, reward: "Wolfsbane Potion" },
+            { name: "Mermaid's Pearl", description: "Retrieve a magical pearl from the Mermaid Queen to lift a curse on the land.", days: 6, reward: "Mermaid's Tear" },
+            { name: "Giant's Beanstalk", description: "Climb an enormous beanstalk to negotiate with cloud giants.", days: 4, reward: "Magic Beans" },
+            { name: "Basilisk's Gaze", description: "A basilisk has turned villagers to stone. Find a way to reverse the effect.", days: 5, reward: "Basilisk Eye" },
+            { name: "Pixie Prank War", description: "End the prank war between two pixie tribes before it escalates further.", days: 2, reward: "Pixie Dust" },
+            { name: "Necromancer's Apprentice", description: "Stop a novice necromancer from raising an undead army.", days: 4, reward: "Soul Gem" },
+            { name: "Sphinx's Riddle", description: "Answer the sphinx's riddle to gain access to an ancient library.", days: 3, reward: "Scroll of Wisdom" },
+            { name: "Treant Migration", description: "Help a group of treants safely migrate to a new forest.", days: 5, reward: "Heartwood" },
+            { name: "Siren's Song", description: "Resist the siren's song and free a town from their hypnotic influence.", days: 4, reward: "Enchanted Lyre" },
+            { name: "Chimera Chase", description: "Track down and capture a chimera that escaped from a wizard's menagerie.", days: 6, reward: "Chimera Scale" },
+            { name: "Golem Uprising", description: "Deactivate a group of golems that have gone rogue in a dwarven city.", days: 5, reward: "Golem Core" },
+            { name: "Fey Court Intrigue", description: "Navigate the complex politics of the Fey Court to prevent a war with the mortal realm.", days: 7, reward: "Fey Crown" }
+        ];
+
+        const equipmentStats = {
+            'Enchanted Tool': { attack: 2, defense: 1 },
+            'Dragon Bread': { hp: 3 },
+            'Phoenix Pearl': { attack: 3 },
+            'Frost Spice': { defense: 2 },
+            'Fairy Jewels': { luck: 3 },
+            'Mystic Artifact': { mana: 4 },
+            'Dragon Crown': { defense: 3, luck: 1 },
+            'Mithril Jewelry': { defense: 2, luck: 2 },
+            'Elemental Orb': { attack: 2, mana: 2 },
+            'Fairy Bread': { hp: 2, luck: 1 },
+            'Dragon Spice': { attack: 2, hp: 1 },
+            'Mermaid Wand': { mana: 3, luck: 1 },
+            'Legendary Weapon': { attack: 4 },
+            'Royal Scepter': { mana: 3, luck: 2 },
+            'Frost Staff': { attack: 2, defense: 1 },
+            'Magic Potion': { hp: 2, mana: 2 },
+            'Elven Bread': { hp: 2, defense: 1 },
+            'Dragon Armor': { defense: 4 },
+            'Fairy Pearl': { luck: 2, mana: 1 },
+            'Frozen Relic': { defense: 2, mana: 1 }
+        };
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            drawMap();
+            updateResourceBar();
+        }
+
+        function hideAllPopups() {
+    const popups = document.querySelectorAll('.popup');
+    popups.forEach(popup => {
+        popup.style.display = 'none';
+    });
+}
+
+        function initGame() {
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            window.addEventListener('orientationchange', resizeCanvas);
+            canvas.addEventListener('mousedown', onMouseDown);
+            canvas.addEventListener('mousemove', onMouseMove);
+            canvas.addEventListener('mouseup', onMouseUp);
+            canvas.addEventListener('wheel', onWheel);
+            canvas.addEventListener('click', onCanvasClick);
+            canvas.addEventListener('touchstart', onTouchStart);
+            canvas.addEventListener('touchmove', onTouchMove);
+            canvas.addEventListener('touchend', onTouchEnd);
+
+            dealCards(7);
+
+            mapLockButton.addEventListener('click', toggleMapLock);
+
+            document.querySelectorAll('.closeButton').forEach(button => {
+                button.addEventListener('click', () => {
+                    button.closest('.popup').style.display = 'none';
+                });
+            });
+
+            collectButton.addEventListener('click', collectResources);
+            forgeCard.addEventListener('click', () => {
+                forgePopup.style.display = 'block';
+                updateForgeRecipeList();
+            });
+
+            forgeButton.addEventListener('click', tryForge);
+
+            const forgeSlots = document.querySelectorAll('.forgeSlot');
+            forgeSlots.forEach(slot => {
+                slot.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                });
+                slot.addEventListener('drop', onDrop);
+            });
+
+            moveTileButton.addEventListener('click', toggleMoveTileMode);
+            collectAllButton.addEventListener('click', collectAllResources);
+            roadBuildingButton.addEventListener('click', toggleRoadBuildingMode);
+            startCombatButton.addEventListener('click', startCombat);
+            collectRewardButton.addEventListener('click', collectCombatReward);
+
+            gameClock.addEventListener('contextmenu', showSaveLoadPopup);
+            gameClock.addEventListener('touchstart', handleClockLongPress);
+
+            saveButton.addEventListener('click', saveGame);
+            loadButton.addEventListener('click', () => loadFile.click());
+            loadFile.addEventListener('change', loadGame);
+            newGameButton.addEventListener('click', startNewGame);
+
+            recipeButton.addEventListener('click', showRecipes);
+            clearForgeButton.addEventListener('click', clearForgeSlots);
+
+            helpButton.addEventListener('click', showHelp);
+
+            // Initialize starting avatars
+            avatars = [
+                { emoji: '👤', race: 'Human', hp: 6, attack: 4, defense: 4, mana: 4, luck: 4, equipment: [] },
+                { emoji: '🧔', race: 'Dwarf', hp: 6, attack: 4, defense: 4, mana: 4, luck: 4, equipment: [] },
+                { emoji: '🧝', race: 'Elf', hp: 6, attack: 4, defense: 4, mana: 4, luck: 4, equipment: [] }
+            ];
+
+            // Load game from cookie if exists
+            const savedGame = localStorage.getItem('infiniteTerrainSave');
+            if (savedGame) {
+                const gameState = JSON.parse(savedGame);
+                mapData = gameState.mapData;
+                resources = gameState.resources;
+                avatars = gameState.avatars;
+                gameTime = gameState.gameTime;
+                hasArmoryTile = gameState.hasArmoryTile;
+                activeQuests = gameState.activeQuests || [];
+                updateResourceBar();
+                drawMap();
+                logEvent('Game loaded from cookie.');
+                startGame(); // Skip tutorial if game is loaded from cookie
+            } else {
+                showHelp(); // Show help pop-up if no cookie exists
+            }
+
+            if (isPc) {
+                topRightDock.style.position = 'absolute';
+                topRightDock.style.cursor = 'move';
+                topRightDock.addEventListener('mousedown', initDrag, false);
+            }
+            hideAllPopups(); // Add this line
+            requestAnimationFrame(gameLoop);
+            // resources['Gold'] = 1000; // Start with 1000 gold
+        }
+
+        function gameLoop() {
+            const currentTime = Date.now();
+            const deltaTime = (currentTime - lastUpdateTime) / 1000; // Convert to seconds
+            lastUpdateTime = currentTime;
+
+            updateGameTime(deltaTime);
+            drawMap();
+            checkActiveQuests();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function updateGameTime(deltaTime) {
+            gameTime += deltaTime * 5; // 2 real seconds = 10 game minutes
+            const totalMinutes = Math.floor(gameTime);
+            const years = Math.floor(totalMinutes / (365 * 24 * 60));
+            const days = Math.floor((totalMinutes % (365 * 24 * 60)) / (24 * 60));
+            const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
+            const minutes = Math.floor(totalMinutes % 60);
+            const clockEmoji = clockEmojis[hours % 24];
+            gameClock.textContent = `${clockEmoji} (${years}•${days}) ${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+
+            // Check for resource regeneration
+            if (Math.floor(gameTime / 60) % 8 === 0 && Math.floor(gameTime % 60) === 0) {
+                regenerateResources();
+            }
+
+            // Update background color based on game time
+            updateBackgroundColor(hours, minutes);
+
+            // Move travelers on roads
+            if (hours >= 6 && hours < 18) {
+                moveTravelers();
+            }
+        }
+
+        function updateBackgroundColor(hours, minutes) {
+            let color;
+            const time = hours + minutes / 60;
+
+            if (time >= 0 && time <= 6) {
+                color = 'rgba(20, 20, 20, 0.8)'; // Slightly light black
+            } else if (time > 6 && time <= 8) {
+                color = 'rgba(255, 255, 200, 0.8)'; // Light yellow
+            } else if (time > 8 && time <= 17) {
+                color = 'rgba(255, 255, 255, 0.8)'; // White
+            } else if (time > 17 && time <= 22) {
+                color = 'rgba(128, 128, 128, 0.8)'; // Medium grey
+            } else {
+                color = 'rgba(20, 20, 20, 0.8)'; // Slightly light black
+            }
+
+            document.body.style.backgroundColor = color;
+        }
+
+        function regenerateResources() {
+    for (const key in mapData) {
+        const tile = mapData[key];
+        if (tile.hasGeneratedResources) {
+            tile.hasGeneratedResources = false;
+            if (tile.potentialLargeGroup) {
+                tile.isPartOfLargeGroup = true;
+            }
+        }
+    }
+}
+
+        function startGame() {
+            gameStarted = true;
+            startMenu.style.display = 'none';
+            drawMap();
+        }
+
+        readyButton.addEventListener('click', startGame);
+
+        // Check for saved game on load
+        window.addEventListener('load', () => {
+            const savedGame = localStorage.getItem('infiniteTerrainSave');
+            if (!savedGame) {
+                showHelp();
+            }
+        });
+
+        function dealCards(count) {
+            hand.innerHTML = '';
+            for (let i = 0; i < count; i++) {
+                const card = document.createElement('div');
+                card.className = 'card';
+                const terrain = terrainTypes[Math.floor(Math.random() * terrainTypes.length)];
+                card.textContent = terrain.emoji;
+                card.dataset.terrain = JSON.stringify(terrain);
+                card.addEventListener('click', selectCard);
+                hand.appendChild(card);
+            }
+        }
+
+        function selectCard(e) {
+            const clickedCard = e.target;
+            const terrain = JSON.parse(clickedCard.dataset.terrain);
+            
+            if (selectedCards.some(card => JSON.parse(card.dataset.terrain).name === terrain.name)) {
+                // Deselect all cards of this type
+                selectedCards = selectedCards.filter(card => JSON.parse(card.dataset.terrain).name !== terrain.name);
+                Array.from(hand.children).forEach(card => {
+                    if (JSON.parse(card.dataset.terrain).name === terrain.name) {
+                        card.style.border = '1px solid #333';
+                    }
+                });
+            } else {
+                // Select all cards of this type
+                selectedCards = selectedCards.concat(Array.from(hand.children).filter(card => 
+                    JSON.parse(card.dataset.terrain).name === terrain.name
+                ));
+                selectedCards.forEach(card => card.style.border = '1px solid #ff0000');
+            }
+            
+            logEvent(`Selected ${terrain.name} cards (${selectedCards.length})`);
+        }
+
+        function onCanvasClick(e) {
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.floor((e.clientX - rect.left - cameraOffset.x) / (TILE_SIZE * cameraZoom));
+    const y = Math.floor((e.clientY - rect.top - cameraOffset.y) / (TILE_SIZE * cameraZoom));
+
+    console.log(`Canvas clicked at (${x}, ${y})`);
+
+    if (isRoadBuildingMode) {
+        console.log('Handling road building');
+        handleRoadBuilding(x, y);
+    } else if (selectedCards.length === 0) {
+        const key = `${x},${y}`;
+        if (mapData[key]) {
+            showTileInfo(x, y);
+        }
+    } else {
+        selectedCards.forEach((card, index) => {
+            placeTile(x + index, y, JSON.parse(card.dataset.terrain));
+            card.remove();
+        });
+
+        selectedCards = [];
+
+        if (hand.children.length === 0) {
+            dealCards(7);
+            checkForEvents();
+        }
+
+        drawMap();
+    }
+}
+
+        function placeTile(x, y, terrain) {
+            const key = `${x},${y}`;
+            mapData[key] = { ...terrain, hasGeneratedResources: false };
+            checkForLargeGroup(x, y);
+
+            // Check for Avatar (1 in 25 chance)
+            if (Math.random() < 0.04) {
+                const avatar = generateAvatar();
+                mapData[key].avatar = avatar;
+                logEvent(`An Avatar (${avatar.emoji} ${avatar.race}) has appeared on the ${terrain.name} tile!`);
+                avatars.push(avatar);
+            }
+
+            // Check for Monster Camp (1 in 15 chance)
+            if (Math.random() < 0.0667) {
+                mapData[key] = { ...events.find(e => e.name === 'Monster Camp'), monsterCount: Math.floor(Math.random() * 6) + 1 };
+                logEvent(`A Monster Camp has appeared on the ${terrain.name} tile!`);
+            }
+
+            // Check for Treasure (1 in 25 chance)
+            if (Math.random() < 0.04) {
+                const treasureResources = getTreasureResources();
+                Object.entries(treasureResources).forEach(([resource, amount]) => {
+                    resources[resource] = (resources[resource] || 0) + amount;
+                });
+                logEvent(`A treasure chest was found on the ${terrain.name} tile! You received: ${Object.entries(treasureResources).map(([r, a]) => `${a} ${r}`).join(', ')}`);
+                updateResourceBar();
+            }
+
+            // Check for Town (1 in 25 chance)
+            if (Math.random() < 0.04) {
+                mapData[key] = { emoji: '🛖', name: 'Town', resourceMultiplier: 2, goldGeneration: 10 };
+                logEvent(`A Town has been discovered on the ${terrain.name} tile!`);
+            }
+
+            // Check for Armory
+            if (!hasArmoryTile && terrain.name === 'Castle') {
+                mapData[key] = { emoji: '🏯', name: 'Armory' };
+                hasArmoryTile = true;
+                logEvent('An Armory has been established in the Castle!');
+            }
+
+            // Suggest best tile placement
+            suggestBestTilePlacement(x, y, terrain.name);
+
+            // Check for resource combination
+            checkResourceCombination(x, y);
+        }
+
+        function suggestBestTilePlacement(x, y, terrainName) {
+            const bestCombinations = tileResourceCombinations[terrainName];
+            if (!bestCombinations) return;
+
+            const directions = [
+                { dx: 1, dy: 0 },
+                { dx: -1, dy: 0 },
+                { dx: 0, dy: 1 },
+                { dx: 0, dy: -1 }
+            ];
+
+            for (const { dx, dy } of directions) {
+                const newX = x + dx;
+                const newY = y + dy;
+                const newKey = `${newX},${newY}`;
+
+                if (!mapData[newKey]) {
+                    const suggestedTerrain = terrainTypes.find(t => bestCombinations.includes(t.name));
+                    if (suggestedTerrain) {
+                        ctx.globalAlpha = 0.5;
+                        ctx.fillStyle = '#90EE90';
+                        ctx.fillRect(newX * TILE_SIZE, newY * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                        ctx.globalAlpha = 1;
+                        ctx.font = `${TILE_SIZE* 0.7}px Arial`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(suggestedTerrain.emoji, newX * TILE_SIZE+ TILE_SIZE/ 2, newY * TILE_SIZE+ TILE_SIZE/ 2);
+                    }
+                }
+            }
+        }
+
+        function checkResourceCombination(x, y) {
+            const currentTile = mapData[`${x},${y}`];
+            if (!currentTile) return;
+
+            const directions = [
+                { dx: 1, dy: 0 },
+                { dx: -1, dy: 0 },
+                { dx: 0, dy: 1 },
+                { dx: 0, dy: -1 }
+            ];
+
+            for (const { dx, dy } of directions) {
+                const neighborX = x + dx;
+                const neighborY = y + dy;
+                const neighborKey = `${neighborX},${neighborY}`;
+                const neighborTile = mapData[neighborKey];
+
+                if (neighborTile && tileResourceCombinations[currentTile.name]?.includes(neighborTile.name)) {
+                    currentTile.backgroundColor = 'blue';
+                    neighborTile.backgroundColor = 'blue';
+                    logEvent(`Resource combination found: ${currentTile.name} and ${neighborTile.name}`);
+                }
+            }
+        }
+
+        function generateAvatar() {
+            const races = ['Human', 'Elf', 'Dwarf', 'Orc', 'Gnome', 'Halfling', 'Fairy', 'Goblin'];
+            return {
+                emoji: avatarEmojis[Math.floor(Math.random() * avatarEmojis.length)],
+                race: races[Math.floor(Math.random() * races.length)],
+                hp: Math.floor(Math.random() * 8) + 3,
+                attack: Math.floor(Math.random() * 8) + 3,
+                defense: Math.floor(Math.random() * 8) + 3,
+                mana: Math.floor(Math.random() * 8) + 3,
+                luck: Math.floor(Math.random() * 8) + 3,
+                equipment: []
+            };
+        }
+
+        function getTreasureResources() {
+            const allResources = terrainTypes.map(t => t.resource);
+            const treasureResources = {};
+            for (let i = 0; i < 4; i++) {
+                const resource = allResources[Math.floor(Math.random() * allResources.length)];
+                treasureResources[resource] = (treasureResources[resource] || 0) + Math.floor(Math.random() * 11) + 5; // 5-15 resources
+            }
+            return treasureResources;
+        }
+
+        function checkForLargeGroup(x, y) {
+    const directions = [
+        [-1, -1], [0, -1], [1, -1],
+        [-1, 0], [0, 0], [1, 0],
+        [-1, 1], [0, 1], [1, 1]
+    ];
+
+    for (let [dx, dy] of directions) {
+        const newX = x + dx;
+        const newY = y + dy;
+        const groupSize = checkGroupAt(newX, newY);
+        if (groupSize) {
+            const groupKeys = getGroupKeys(newX, newY, groupSize);
+            groupKeys.forEach(key => {
+                mapData[key].potentialLargeGroup = true;
+                mapData[key].groupSize = groupSize;
+                mapData[key].resourceMultiplier = 1 + (groupSize.width * groupSize.height - 1) * 3;
+            });
+            break;
+        }
+    }
+}
+
+        function checkGroupAt(x, y) {
+            const type = mapData[`${x},${y}`]?.name;
+            if (!type) return null;
+
+            let maxWidth = 1;
+            let maxHeight = 1;
+
+            // Check width
+            while (mapData[`${x + maxWidth},${y}`]?.name === type && maxWidth < 4) {
+                maxWidth++;
+            }
+
+            // Check height
+            while (mapData[`${x},${y + maxHeight}`]?.name === type && maxHeight < 4) {
+                maxHeight++;
+            }
+
+            // Verify the entire rectangle
+            for (let i = 0; i < maxWidth; i++) {
+                for (let j = 0; j < maxHeight; j++) {
+                    if (mapData[`${x + i},${y + j}`]?.name !== type) {
+                        return null;
+                    }
+                }
+            }
+
+            return { width: maxWidth, height: maxHeight };
+        }
+
+        function getGroupKeys(x, y, size) {
+            const keys = [];
+            for (let i = 0; i < size.width; i++) {
+                for (let j = 0; j < size.height; j++) {
+                    keys.push(`${x + i},${y + j}`);
+                }
+            }
+            return keys;
+        }
+
+        function checkForEvents() {
+            const eventChance = 0.3;
+            if (Math.random() < eventChance) {
+                const event = events[Math.floor(Math.random() * events.length)];
+                logEvent(`${event.emoji} ${event.description}`);
+                dealCards(3); // Reward for event
+            }
+        }
+
+        function logEvent(message) {
+            const entry = document.createElement('div');
+            entry.textContent = message;
+            entry.addEventListener('click', () => highlightRelatedTile(message));
+            eventLog.appendChild(entry);
+            eventLog.scrollTop = eventLog.scrollHeight;
+        }
+
+        function highlightRelatedTile(message) {
+            const keywords = ['Monster Camp', 'Town', 'Dwarf Cave'];
+            const keyword = keywords.find(k => message.includes(k));
+            if (keyword) {
+                for (const key in mapData) {
+                    if (mapData[key].name === keyword) {
+                        const [x, y] = key.split(',').map(Number);
+                        highlightTile(x, y);
+                        break;
+                    }
+                }
+            }
+        }
+
+        function highlightTile(x, y) {
+            ctx.save();
+            ctx.globalAlpha = 0.5;
+            ctx.fillStyle = 'yellow';
+            ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+            ctx.restore();
+            setTimeout(() => drawMap(), 1000); // Remove highlight after 1 second
+        }
+
+        function drawMap() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    ctx.translate(cameraOffset.x, cameraOffset.y);
+    ctx.scale(cameraZoom, cameraZoom);
+
+    const startX = Math.floor(-cameraOffset.x / (TILE_SIZE * cameraZoom));
+    const startY = Math.floor(-cameraOffset.y / (TILE_SIZE * cameraZoom));
+    const endX = startX + Math.ceil(canvas.width / (TILE_SIZE * cameraZoom));
+    const endY = startY + Math.ceil(canvas.height / (TILE_SIZE * cameraZoom));
+
+    // Draw tiles
+    for (let x = startX; x <= endX; x++) {
+        for (let y = startY; y <= endY; y++) {
+            const key = `${x},${y}`;
+            if (mapData[key]) {
+                if (mapData[key].isRoad) {
+                    // Draw road tiles
+                    ctx.fillStyle = '#808080'; // Grey color for road
+                    ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                } else {
+                    // Draw other tiles
+                    if (mapData[key].isPartOfLargeGroup && !mapData[key].hasGeneratedResources) {
+                        const hue = (gameTime * 10) % 360; // Change color over time
+                        ctx.fillStyle = `hsl(${hue}, 100%, 80%)`;
+                    } else if (mapData[key].hasGeneratedResources) {
+                        ctx.fillStyle = 'transparent';
+                    } else {
+                        ctx.fillStyle = mapData[key].backgroundColor || (mapData[key].avatar ? 'gold' : '#e0e0e0');
+                    }
+                    ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    ctx.font = `${TILE_SIZE * 0.8}px Arial`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillStyle = 'black';
+                    ctx.fillText(mapData[key].emoji, x * TILE_SIZE + TILE_SIZE / 2, y * TILE_SIZE + TILE_SIZE / 2);
+
+                    if (mapData[key].avatar) {
+                        ctx.font = `${TILE_SIZE * 0.4}px Arial`;
+                        ctx.fillText(mapData[key].avatar.emoji, x * TILE_SIZE + TILE_SIZE * 0.8, y * TILE_SIZE + TILE_SIZE * 0.8);
+                    }
+
+                    if (mapData[key].traveler) {
+                        ctx.font = `${TILE_SIZE * 0.4}px Arial`;
+                        ctx.fillText(mapData[key].traveler, x * TILE_SIZE + TILE_SIZE * 0.2, y * TILE_SIZE + TILE_SIZE * 0.2);
+                    }
+                }
+
+                if (selectedTiles.some(tile => tile.x === x && tile.y === y)) {
+                    ctx.strokeStyle = 'red';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                }
+            } else {
+                ctx.strokeStyle = '#ccc';
+                ctx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+            }
+        }
+    }
+
+    // Draw roads
+    // ctx.strokeStyle = 'white';
+    // ctx.lineWidth = 2;
+    // for (let x = startX; x <= endX; x++) {
+    //     for (let y = startY; y <= endY; y++) {
+    //         const key = `${x},${y}`;
+    //         if (mapData[key] && mapData[key].isRoad) {
+    //             const neighbors = [
+    //                 { dx: 0, dy: -1, dir: 'N' },
+    //                 { dx: 1, dy: 0, dir: 'E' },
+    //                 { dx: 0, dy: 1, dir: 'S' },
+    //                 { dx: -1, dy: 0, dir: 'W' }
+    //             ];
+    //             neighbors.forEach(({ dx, dy, dir }) => {
+    //                 const neighborKey = `${x + dx},${y + dy}`;
+    //                 if (mapData[neighborKey] && mapData[neighborKey].isRoad) {
+    //                     ctx.beginPath();
+    //                     ctx.moveTo(x * TILE_SIZE + TILE_SIZE / 2, y * TILE_SIZE + TILE_SIZE / 2);
+    //                     ctx.lineTo((x + dx) * TILE_SIZE + TILE_SIZE / 2, (y + dy) * TILE_SIZE + TILE_SIZE / 2);
+    //                     ctx.stroke();
+    //                 }
+    //             });
+    //         }
+    //     }
+    // }
+
+    ctx.strokeStyle = 'white';
+ctx.lineWidth = 2;
+for (let x = startX; x <= endX; x++) {
+    for (let y = startY; y <= endY; y++) {
+        const key = `${x},${y}`;
+        if (mapData[key] && mapData[key].isRoad) {
+            const neighbors = [
+                { dx: 0, dy: -1, dir: 'N' },
+                { dx: 1, dy: -1, dir: 'NE' },
+                { dx: 1, dy: 0, dir: 'E' },
+                { dx: 1, dy: 1, dir: 'SE' },
+                { dx: 0, dy: 1, dir: 'S' },
+                { dx: -1, dy: 1, dir: 'SW' },
+                { dx: -1, dy: 0, dir: 'W' },
+                { dx: -1, dy: -1, dir: 'NW' }
+            ];
+            neighbors.forEach(({ dx, dy, dir }) => {
+                const neighborKey = `${x + dx},${y + dy}`;
+                if (mapData[neighborKey] && mapData[neighborKey].isRoad) {
+                    ctx.beginPath();
+                    if (dir.length === 1) {
+                        // Straight line for cardinal directions
+                        ctx.moveTo(x * TILE_SIZE + TILE_SIZE / 2, y * TILE_SIZE + TILE_SIZE / 2);
+                        ctx.lineTo((x + dx) * TILE_SIZE + TILE_SIZE / 2, (y + dy) * TILE_SIZE + TILE_SIZE / 2);
+                    } else {
+                        // Curve for diagonal directions
+                        const startX = x * TILE_SIZE + TILE_SIZE / 2;
+                        const startY = y * TILE_SIZE + TILE_SIZE / 2;
+                        const endX = (x + dx) * TILE_SIZE + TILE_SIZE / 2;
+                        const endY = (y + dy) * TILE_SIZE + TILE_SIZE / 2;
+                        const midX = (startX + endX) / 2;
+                        const midY = (startY + endY) / 2;
+                        ctx.moveTo(startX, startY);
+                        ctx.quadraticCurveTo(midX, midY, endX, endY);
+                    }
+                    ctx.stroke();
+                }
+            });
+        }
+    }
+}
+
+            // Draw checkmark for valid resource combination
+            if (selectedCard) {
+                const tileX = Math.floor(mousePosition.x / TILE_SIZE);
+                const tileY = Math.floor(mousePosition.y / TILE_SIZE);
+                const selectedTerrain = JSON.parse(selectedCard.dataset.terrain);
+                const adjacentTiles = [
+                    { x: tileX - 1, y: tileY },
+                    { x: tileX + 1, y: tileY },
+                    { x: tileX, y: tileY - 1 },
+                    { x: tileX, y: tileY + 1 }
+                ];
+
+                for (const tile of adjacentTiles) {
+                    const key = `${tile.x},${tile.y}`;
+                    if (mapData[key] && tileResourceCombinations[selectedTerrain.name]?.includes(mapData[key].name)) {
+                        ctx.font = `${TILE_SIZE* 0.6}px Arial`;
+                        ctx.fillStyle = 'green';
+                        ctx.fillText('✓', tileX * TILE_SIZE+ TILE_SIZE/ 2, tileY * TILE_SIZE+ TILE_SIZE/ 2);
+                        break;
+                    }
+                }
+            }
+
+            ctx.restore();
+        }
+
+        function onMouseDown(e) {
+            if (isMapLocked) {
+                startSelection(e.clientX, e.clientY);
+            } else {
+                isDragging = true;
+                dragStart = { x: e.clientX - cameraOffset.x, y: e.clientY - cameraOffset.y };
+            }
+        }
+
+        function onMouseMove(e) {
+            mousePosition = {
+                x: e.clientX - cameraOffset.x,
+                y: e.clientY - cameraOffset.y
+            };
+
+            if (isMapLocked) {
+                updateSelection(e.clientX, e.clientY);
+            } else if (isDragging) {
+                cameraOffset.x = e.clientX - dragStart.x;
+                cameraOffset.y = e.clientY - dragStart.y;
+                drawMap();
+            }
+        }
+
+        function onMouseUp(e) {
+            if (isMapLocked) {
+                endSelection();
+            } else {
+                isDragging = false;
+            }
+        }
+
+        function startSelection(x, y) {
+            selectedTiles = [];
+            const tileX = Math.floor((x - cameraOffset.x) / (TILE_SIZE* cameraZoom));
+            const tileY = Math.floor((y - cameraOffset.y) / (TILE_SIZE* cameraZoom));
+            selectedTiles.push({ x: tileX, y: tileY });
+            drawMap();
+        }
+
+        function updateSelection(x, y) {
+            const tileX = Math.floor((x - cameraOffset.x) / (TILE_SIZE* cameraZoom));
+            const tileY = Math.floor((y - cameraOffset.y) / (TILE_SIZE* cameraZoom));
+            if (!selectedTiles.some(tile => tile.x === tileX && tile.y === tileY)) {
+                selectedTiles.push({ x: tileX, y: tileY });
+                drawMap();
+            }
+        }
+
+        function endSelection() {
+            if (selectedTiles.length > 0) {
+                highlightHandButton();
+            }
+        }
+
+        function highlightHandButton() {
+            moveTileButton.style.backgroundColor = '#ff0000';
+            setTimeout(() => {
+                moveTileButton.style.backgroundColor = isMoveTileMode ? '#ff0000' : '#f0f0f0';
+            }, 3000);
+        }
+
+        function toggleMapLock() {
+            isMapLocked = !isMapLocked;
+            mapLockButton.textContent = isMapLocked ? '🔒' : '🔐';
+            canvas.style.cursor = isMapLocked ? 'crosshair' : 'default';
+        }
+
+        function onWheel(e) {
+            e.preventDefault();
+            adjustZoom(e.deltaY * -0.001);
+        }
+
+        function adjustZoom(zoomAmount) {
+            cameraZoom += zoomAmount;
+            cameraZoom = Math.min(Math.max(0.1, cameraZoom), 10);
+            drawMap();
+        }
+
+        function onTouchStart(e) {
+            if (e.touches.length === 1) {
+                isDragging = true;
+                dragStart = { x: e.touches[0].clientX - cameraOffset.x, y: e.touches[0].clientY - cameraOffset.y };
+            } else if (e.touches.length === 2) {
+                isDragging = false;
+                lastZoomPinchDistance = getDistance(e.touches[0], e.touches[1]);
+            }
+        }
+
+        function onTouchMove(e) {
+            e.preventDefault();
+            if (isDragging && e.touches.length === 1) {
+                cameraOffset.x = e.touches[0].clientX - dragStart.x;
+                cameraOffset.y = e.touches[0].clientY - dragStart.y;
+                drawMap();
+            } else if (e.touches.length === 2) {
+                const newDistance = getDistance(e.touches[0], e.touches[1]);
+                const zoomAmount = (newDistance - lastZoomPinchDistance) * 0.01;
+                adjustZoom(zoomAmount);
+                lastZoomPinchDistance = newDistance;
+            }
+        }
+
+        function onTouchEnd() {
+            isDragging = false;
+        }
+
+        function getDistance(touch1, touch2) {
+            return Math.hypot(touch1.clientX - touch2.clientX, touch1.clientY - touch2.clientY);
+        }
+
+        function showTileInfo(x, y) {
+            const key = `${x},${y}`;
+            const tile = mapData[key];
+            if (!tile) return;
+
+            let content = `<h3>${tile.emoji} ${tile.name}</h3>`;
+            content += `<p>Type: ${tile.name}</p>`;
+
+            if (tile.name === 'Monster Camp') {
+                showCombatPopup(x, y);
+                return;
+            }
+
+            if (tile.name === 'Armory') {
+                showArmoryPopup();
+                return;
+            }
+
+            if (tile.resource) {
+                content += `<p>Resource: ${tile.resource}</p>`;
+
+                if (!tile.hasGeneratedResources) {
+                    const resourceAmount = tile.isPartOfLargeGroup ? tile.resourceMultiplier : 1;
+                    content += `<p>Available resources: ${resourceAmount} ${tile.resource}</p>`;
+                } else {
+                    content += `<p>Resources already collected</p>`;
+                }
+            }
+
+            if (tile.avatar) {
+                content += `<p>Avatar: ${tile.avatar.emoji} (${tile.avatar.race})</p>`;
+                content += `<button id="recruitAvatar">Recruit Avatar</button>`;
+            }
+
+            if (tile.name === 'Town') {
+                content += `<p>Resource multiplier: ${tile.resourceMultiplier}x</p>`;
+                content += `<p>Gold generation: +${tile.goldGeneration}</p>`;
+            }
+
+            popupContent.innerHTML = content;
+            popupBox.style.display = 'block';
+            collectButton.style.display = tile.hasGeneratedResources ? 'none' : 'block';
+            collectButton.dataset.x = x;
+            collectButton.dataset.y = y;
+
+            if (tile.avatar) {
+                document.getElementById('recruitAvatar').addEventListener('click', () => recruitAvatar(x, y));
+            }
+        }
+
+        function collectResources() {
+            const x = parseInt(collectButton.dataset.x);
+            const y = parseInt(collectButton.dataset.y);
+            const key = `${x},${y}`;
+            const tile = mapData[key];
+
+            if (tile && !tile.hasGeneratedResources) {
+                let resourceAmount = tile.isPartOfLargeGroup ? tile.resourceMultiplier : 1;
+                if (tile.name === 'Town') {
+                    resourceAmount *= tile.resourceMultiplier;
+                    resources['Gold'] = (resources['Gold'] || 0) + tile.goldGeneration;
+                }
+                resources[tile.resource] = (resources[tile.resource] || 0) + resourceAmount;
+                tile.hasGeneratedResources = true;
+                tile.backgroundColor = 'transparent';
+                updateResourceBar();
+                showTileInfo(x, y);
+                drawMap();
+            }
+        }
+
+        function updateResourceBar() {
+            resourceBar.innerHTML = '';
+            const resourceBarHeight = window.innerHeight - 20; // Subtract some padding
+            const cardHeight = 40; // Height of each resource card
+            const maxCards = Math.floor(resourceBarHeight / cardHeight);
+            
+            const resourceEntries = Object.entries(resources);
+            for (let i = 0; i < Math.min(maxCards, resourceEntries.length); i++) {
+                const [resource, amount] = resourceEntries[i];
+                const resourceCard = document.createElement('div');
+                resourceCard.className = 'resourceCard';
+                const emoji = resource === 'Gold' ? '🪙' : terrainTypes.find(t => t.resource === resource)?.emoji;
+                resourceCard.innerHTML = `${emoji}<br>${amount}`;
+                resourceCard.draggable = true;
+                resourceCard.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.setData('text/plain', resource);
+                });
+                resourceCard.addEventListener('click', () => addResourceToForge(resource));
+                resourceBar.appendChild(resourceCard);
+            }
+
+            if (resourceEntries.length > maxCards) {
+                const moreResources = document.createElement('div');
+                moreResources.className = 'resourceCard';
+                moreResources.textContent = '...';
+                moreResources.title = 'More resources available';
+                resourceBar.appendChild(moreResources);
+            }
+        }
+
+        function addResourceToForge(resource) {
+            if (forgePopup.style.display === 'block') {
+                const slots = document.querySelectorAll('.forgeSlot');
+                for (let i = 0; i < 2; i++) {
+                    if (!slots[i].dataset.resource) {
+                        slots[i].textContent = resource === 'Gold' ? '🪙' : terrainTypes.find(t => t.resource === resource)?.emoji;
+                        slots[i].dataset.resource = resource;
+                        checkForgeRecipe();
+                        break;
+                    }
+                }
+            }
+        }
+
+        function onDrop(e) {
+            e.preventDefault();
+            const resource = e.dataTransfer.getData('text');
+            e.target.textContent = resource === 'Gold' ? '🪙' : terrainTypes.find(t => t.resource === resource)?.emoji;
+            e.target.dataset.resource = resource;
+            checkForgeRecipe();
+        }
+
+        function checkForgeRecipe() {
+            const slots = document.querySelectorAll('.forgeSlot');
+            const ingredients = Array.from(slots).slice(0, 2).map(slot => slot.dataset.resource).filter(Boolean);
+
+            const recipe = recipes.find(r => 
+                r.inputs.length === ingredients.length && 
+                r.inputs.every(i => ingredients.includes(i))
+            );
+
+            if (recipe) {
+                slots[2].textContent = recipe.outputEmoji;
+                slots[2].dataset.resource = recipe.output;
+                forgeButton.textContent = recipe.outputEmoji;
+                forgeButton.dataset.recipe = JSON.stringify(recipe);
+            } else {
+                slots[2].textContent = '🚫';
+                slots[2].dataset.resource = '';
+                forgeButton.textContent = '⚒️';
+                forgeButton.dataset.recipe = '';
+            }
+        }
+
+        function tryForge() {
+            const recipe = JSON.parse(forgeButton.dataset.recipe || 'null');
+            if (recipe) {
+                const quantity = parseInt(forgeQuantity.value);
+                const maxQuantity = Math.min(...recipe.inputs.map(input => Math.floor(resources[input] / quantity)));
+                
+                if (maxQuantity > 0) {
+                    recipe.inputs.forEach(ingredient => {
+                        resources[ingredient] -= maxQuantity;
+                        if (resources[ingredient] === 0) {
+                            delete resources[ingredient];
+                        }
+                    });
+
+                    resources[recipe.output] = (resources[recipe.output] || 0) + maxQuantity;
+
+                    updateResourceBar();
+                    clearForgeSlots();
+                    logEvent(`Forged ${maxQuantity} ${recipe.output}!`);
+                } else {
+                    logEvent("Not enough resources to forge.");
+                }
+            } else {
+                // Highlight possible combinations
+                const possibleIngredients = new Set(recipes.flatMap(r => r.inputs));
+                const resourceCards = document.querySelectorAll('.resourceCard');
+                resourceCards.forEach(card => {
+                    const resourceType = card.textContent.split('\n')[0];
+                    if (possibleIngredients.has(terrainTypes.find(t => t.emoji === resourceType)?.resource)) {
+                        card.style.border = '2px solid green';
+                    }
+                });
+
+                setTimeout(() => {
+                    resourceCards.forEach(card => {
+                        card.style.border = '1px solid #333';
+                    });
+                }, 2000);
+            }
+        }
+
+        function clearForgeSlots() {
+            const slots = document.querySelectorAll('.forgeSlot');
+            slots.forEach(slot => {
+                slot.textContent = '';
+                slot.dataset.resource = '';
+            });
+            forgeButton.textContent = '⚒️';
+            forgeButton.dataset.recipe = '';
+        }
+
+        function recruitAvatar(x, y) {
+            const key = `${x},${y}`;
+            const tile = mapData[key];
+            if (tile && tile.avatar) {
+                avatars.push(tile.avatar);
+                delete tile.avatar;
+                logEvent(`Recruited a new Avatar: ${tile.avatar.emoji} (${tile.avatar.race})`);
+                showTileInfo(x, y);
+                drawMap();
+            }
+        }
+
+        function toggleMoveTileMode() {
+            isMoveTileMode = !isMoveTileMode;
+            moveTileButton.style.backgroundColor = isMoveTileMode ? '#ff0000' : '#f0f0f0';
+            if (isMoveTileMode) {
+                logEvent("Move tile mode activated. Select a tile to move.");
+            } else {
+                logEvent("Move tile mode deactivated.");
+                tileToMove = null;
+            }
+        }
+
+        function handleMoveTile(e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.floor((e.clientX - rect.left - cameraOffset.x) / (TILE_SIZE* cameraZoom));
+            const y = Math.floor((e.clientY - rect.top - cameraOffset.y) / (TILE_SIZE* cameraZoom));
+            const key = `${x},${y}`;
+
+            if (selectedTiles.length > 0) {
+                const goldRequired = selectedTiles.length * 10;
+                if (resources['Gold'] >= goldRequired) {
+                    resources['Gold'] -= goldRequired;
+                    selectedTiles.forEach((tile, index) => {
+                        const oldKey = `${tile.x},${tile.y}`;
+                        const newX = x + index;
+                        const newKey = `${newX},${y}`;
+                        mapData[newKey] = mapData[oldKey];
+                        delete mapData[oldKey];
+                    });
+                    logEvent(`${selectedTiles.length} tiles moved. ${goldRequired} Gold spent.`);
+                    updateResourceBar();
+                    drawMap();
+                    isMoveTileMode = false;
+                    moveTileButton.style.backgroundColor = '#f0f0f0';
+                    selectedTiles = [];
+                } else {
+                    const tilesCanMove = Math.floor(resources['Gold'] / 10);
+                    logEvent(`Not enough Gold to move all tiles. ${resources['Gold']} Gold available, can move ${tilesCanMove} tiles.`);
+                }
+            } else {
+                if (!tileToMove) {
+                    if (mapData[key]) {
+                        tileToMove = { x, y, tile: mapData[key] };
+                        logEvent("Tile selected. Now select the destination.");
+                    }
+                } else {
+                    if (resources['Gold'] >= 10) {
+                        resources['Gold'] -= 10;
+                        delete mapData[`${tileToMove.x},${tileToMove.y}`];
+                        mapData[key] = tileToMove.tile;
+                        logEvent(`Tile moved from (${tileToMove.x}, ${tileToMove.y}) to (${x}, ${y}). 10 Gold spent.`);
+                        updateResourceBar();
+                        drawMap();
+                        isMoveTileMode = false;
+                        moveTileButton.style.backgroundColor = '#f0f0f0';
+                        tileToMove = null;
+                    } else {
+                        logEvent("Not enough Gold to move tile. 10 Gold required.");
+                    }
+                }
+            }
+        }
+
+        function collectAllResources() {
+            const currentGameHours = Math.floor(gameTime / 60);
+            if (currentGameHours - lastCollectAllTime >= 8) {
+                let totalCollected = 0;
+                let newAvatars = 0;
+
+                for (const key in mapData) {
+                    const tile = mapData[key];
+                    if (!tile.hasGeneratedResources && tile.resource) {
+                        let resourceAmount = tile.isPartOfLargeGroup ? tile.resourceMultiplier : 1;
+                        if (tile.name === 'Town') {
+                            resourceAmount *= tile.resourceMultiplier;
+                            resources['Gold'] = (resources['Gold'] || 0) + tile.goldGeneration;
+                        }
+                        resources[tile.resource] = (resources[tile.resource] || 0) + resourceAmount;
+                        tile.hasGeneratedResources = true;
+                        const hue = (gameTime * 10) % 360; // Change color over time
+                        tile.backgroundColor = `hsl(${hue}, 100%, 80%)`;
+                        totalCollected += resourceAmount;
+                    }
+                    if (tile.avatar) {
+                        avatars.push(tile.avatar);
+                        delete tile.avatar;
+                        newAvatars++;
+                    }
+                }
+
+                updateResourceBar();
+                drawMap();
+
+                let message = `Collected ${totalCollected} resources from all tiles.`;
+                if (newAvatars > 0) {
+                    message += ` Recruited ${newAvatars} new Avatar${newAvatars > 1 ? 's' : ''}!`;
+                }
+                logEvent(message);
+
+                lastCollectAllTime = currentGameHours;
+            } else {
+                logEvent("Not enough time has passed to collect all resources. Please wait.");
+            }
+        }
+
+        function toggleRoadBuildingMode() {
+    isRoadBuildingMode = !isRoadBuildingMode;
+    roadBuildingButton.style.backgroundColor = isRoadBuildingMode ? 'red' : '';
+    if (isRoadBuildingMode) {
+        logEvent("Road building mode activated. Select start and end points.");
+    } else {
+        logEvent("Road building mode deactivated.");
+        roadStartTile = null;
+    }
+}
+
+function handleRoadBuilding(x, y) {
+    console.log(`handleRoadBuilding called with x: ${x}, y: ${y}`);
+    if (!roadStartTile) {
+        roadStartTile = { x, y };
+        console.log(`Set road start tile to (${x}, ${y})`);
+        logEvent("Start point selected. Now select the end point.");
+    } else {
+        console.log(`Building road from (${roadStartTile.x}, ${roadStartTile.y}) to (${x}, ${y})`);
+        buildRoad(roadStartTile, { x, y });
+        roadStartTile = null;
+        isRoadBuildingMode = false;
+        roadBuildingButton.style.backgroundColor = '';
+    }
+}
+
+// function buildRoad(start, end) {
+//     console.log(`Building road from (${start.x}, ${start.y}) to (${end.x}, ${end.y})`);
+//     const dx = end.x - start.x;
+//     const dy = end.y - start.y;
+//     const steps = Math.max(Math.abs(dx), Math.abs(dy));
+//     const xIncrement = dx / steps;
+//     const yIncrement = dy / steps;
+    
+//     let x = start.x;
+//     let y = start.y;
+//     let roadTiles = 0;
+
+//     for (let i = 0; i <= steps; i++) {
+//         const roundX = Math.round(x);
+//         const roundY = Math.round(y);
+//         const key = `${roundX},${roundY}`;
+        
+//         console.log(`Checking tile at (${roundX}, ${roundY})`);
+//         if (!mapData[key] || !mapData[key].isRoad) {
+//             console.log(`Building road tile at (${roundX}, ${roundY})`);
+//             mapData[key] = { isRoad: true, emoji: '🛣️' };
+//             roadTiles++;
+//         }
+
+//         x += xIncrement;
+//         y += yIncrement;
+//     }
+
+//     console.log(`Total road tiles: ${roadTiles}`);
+//     const roadCost = roadTiles * 10; // 10 gold per tile
+//     console.log(`Road cost: ${roadCost}`);
+
+//     if (resources['Gold'] >= roadCost) {
+//         resources['Gold'] -= roadCost;
+//         updateResourceBar();
+//         logEvent(`Road built successfully! Cost: ${roadCost} Gold.`);
+//     } else {
+//         // Remove the road if not enough gold
+//         for (let i = 0; i <= steps; i++) {
+//             const roundX = Math.round(start.x + i * xIncrement);
+//             const roundY = Math.round(start.y + i * yIncrement);
+//             const key = `${roundX},${roundY}`;
+//             if (mapData[key] && mapData[key].isRoad) {
+//                 delete mapData[key];
+//             }
+//         }
+//         logEvent(`Not enough Gold to build the road. Need ${roadCost} Gold.`);
+//     }
+//     drawMap();
+// }
+
+function buildRoad(start, end) {
+    console.log(`Building road from (${start.x}, ${start.y}) to (${end.x}, ${end.y})`);
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+    const steps = Math.max(Math.abs(dx), Math.abs(dy));
+    const xIncrement = dx / steps;
+    const yIncrement = dy / steps;
+    
+    let x = start.x;
+    let y = start.y;
+    let roadTiles = 0;
+    let roadPath = [];
+
+    for (let i = 0; i <= steps; i++) {
+        const roundX = Math.round(x);
+        const roundY = Math.round(y);
+        const key = `${roundX},${roundY}`;
+        
+        if (!mapData[key]) {
+            roadPath.push({ x: roundX, y: roundY });
+            roadTiles++;
+        } else {
+            // If we hit an existing tile, stop the road here
+            break;
+        }
+
+        x += xIncrement;
+        y += yIncrement;
+    }
+
+    console.log(`Total road tiles: ${roadTiles}`);
+    const roadCost = roadTiles * 10; // 10 gold per tile
+    console.log(`Road cost: ${roadCost}`);
+
+    if (resources['Gold'] >= roadCost) {
+        resources['Gold'] -= roadCost;
+        roadPath.forEach(tile => {
+            mapData[`${tile.x},${tile.y}`] = { isRoad: true, emoji: '⬜' };
+        });
+        updateResourceBar();
+        logEvent(`Road built successfully! Cost: ${roadCost} Gold.`);
+    } else {
+        logEvent(`Not enough Gold to build the road. Need ${roadCost} Gold.`);
+    }
+    drawMap();
+}
+
+
+
+        function findPath(start, end) {
+            const queue = [[start]];
+            const visited = new Set();
+
+            while (queue.length > 0) {
+                const path = queue.shift();
+                const { x, y } = path[path.length - 1];
+
+                if (x === end.x && y === end.y) {
+                    return path;
+                }
+
+                const key = `${x},${y}`;
+                if (!visited.has(key)) {
+                    visited.add(key);
+
+                    const neighbors = [
+                        { x: x + 1, y },
+                        { x: x - 1, y },
+                        { x, y: y + 1 },
+                        { x, y: y - 1 }
+                    ];
+
+                    for (const neighbor of neighbors) {
+                        const neighborKey = `${neighbor.x},${neighbor.y}`;
+                        if (!visited.has(neighborKey) && (!mapData[neighborKey] || mapData[neighborKey].name === 'Road')) {
+                            queue.push([...path, neighbor]);
+                        }
+                    }
+                }
+            }
+
+            return null; // No path found
+        }
+
+        function moveTravelers() {
+            const travelers = ['🚶', '🧳'];
+            const roads = Object.entries(mapData).filter(([_, tile]) => tile.name === 'Road');
+
+            if (roads.length === 0) return;
+
+            // Remove existing travelers
+            for (const key in mapData) {
+                if (mapData[key].traveler) {
+                    delete mapData[key].traveler;
+                }
+            }
+
+            // Add new travelers
+            const numTravelers = Math.min(Math.floor(roads.length / 5) + 1, 5); // Add more travelers as roads increase
+            for (let i = 0; i < numTravelers; i++) {
+                const [startKey] = roads[Math.floor(Math.random() * roads.length)];
+                const [x, y] = startKey.split(',').map(Number);
+                const traveler = travelers[Math.floor(Math.random() * travelers.length)];
+                mapData[startKey].traveler = traveler;
+
+                // Move traveler along the road
+                setTimeout(() => moveTravelerAlongRoad(x, y, traveler), i * 1000);
+            }
+        }
+
+        function moveTravelerAlongRoad(x, y, traveler) {
+            const key = `${x},${y}`;
+            if (!mapData[key] || mapData[key].name !== 'Road') return;
+
+            mapData[key].traveler = traveler;
+            drawMap();
+
+            const directions = [
+                { dx: 1, dy: 0 },
+                { dx: -1, dy: 0 },
+                { dx: 0, dy: 1 },
+                { dx: 0, dy: -1 }
+            ];
+
+            const validDirections = directions.filter(({ dx, dy }) => {
+                const newKey = `${x + dx},${y + dy}`;
+                return mapData[newKey] && mapData[newKey].name === 'Road';
+            });
+
+            if (validDirections.length > 0) {
+                const { dx, dy } = validDirections[Math.floor(Math.random() * validDirections.length)];
+                delete mapData[key].traveler;
+                setTimeout(() => moveTravelerAlongRoad(x + dx, y + dy, traveler), 1000);
+            } else {
+                delete mapData[key].traveler;
+                drawMap();
+            }
+        }
+
+        function showCombatPopup(x, y) {
+            const key = `${x},${y}`;
+            const tile = mapData[key];
+            
+            monsterCountElement.textContent = `Monsters: ${tile.monsterCount}`;
+            
+            avatarSelectionElement.innerHTML = '';
+            avatars.forEach((avatar, index) => {
+                if (!avatar.onQuest) {
+                    const avatarButton = document.createElement('button');
+                    avatarButton.textContent = `${avatar.emoji} ${avatar.race}`;
+                    avatarButton.addEventListener('click', () => selectAvatarForCombat(index, x, y));
+                    avatarSelectionElement.appendChild(avatarButton);
+                }
+            });
+
+            startCombatButton.style.display = 'none';
+            collectRewardButton.style.display = 'none';
+            combatLogElement.innerHTML = '';
+
+            combatPopup.style.display = 'block';
+        }
+
+        function selectAvatarForCombat(avatarIndex, x, y) {
+            const avatar = avatars[avatarIndex];
+            startCombatButton.dataset.avatarIndex = avatarIndex;
+            startCombatButton.dataset.x = x;
+            startCombatButton.dataset.y = y;
+            startCombatButton.style.display = 'block';
+            logEvent(`Selected ${avatar.emoji} ${avatar.race} for combat.`);
+        }
+
+        function startCombat() {
+            const avatarIndex = startCombatButton.dataset.avatarIndex;
+            const x = startCombatButton.dataset.x;
+            const y = startCombatButton.dataset.y;
+            const key = `${x},${y}`;
+            const tile = mapData[key];
+            const avatar = avatars[avatarIndex];
+
+            let combatLog = '';
+            let avatarHP = avatar.hp;
+            let monstersRemaining = tile.monsterCount;
+
+            while (avatarHP > 0 && monstersRemaining > 0) {
+                // Avatar's turn
+                const avatarDamage = Math.max(0, avatar.attack - Math.floor(Math.random() * 3));
+                monstersRemaining = Math.max(0, monstersRemaining - 1);
+                combatLog += `${avatar.emoji} deals ${avatarDamage} damage. ${monstersRemaining} monsters remaining.<br>`;
+
+                if (monstersRemaining === 0) break;
+
+                // Monsters' turn
+                const monsterDamage = Math.max(1, 2 - avatar.defense + Math.floor(Math.random() * 3));
+                avatarHP = Math.max(0, avatarHP - monsterDamage);
+                combatLog += `Monsters deal ${monsterDamage} damage. ${avatar.emoji} has ${avatarHP} HP left.<br>`;
+            }
+
+            combatLogElement.innerHTML = combatLog;
+
+            if (avatarHP > 0) {
+                logEvent(`${avatar.emoji} ${avatar.race} defeated the monster camp!`);
+                startCombatButton.style.display = 'none';
+                collectRewardButton.style.display = 'block';
+                collectRewardButton.dataset.x = x;
+                collectRewardButton.dataset.y = y;
+            } else {
+                logEvent(`${avatar.emoji} ${avatar.race} was defeated by the monsters.`);
+                avatars.splice(avatarIndex, 1);
+                startCombatButton.style.display = 'none';
+                showTombstonePopup(avatar);
+            }
+        }
+
+        function showTombstonePopup(avatar) {
+            const removedResources = {};
+            for (let i = 0; i < 5; i++) {
+                const resourceKeys = Object.keys(resources);
+                if (resourceKeys.length > 0) {
+                    const randomResource = resourceKeys[Math.floor(Math.random() * resourceKeys.length)];
+                    const amount = Math.floor(Math.random() * 10) + 1;
+                    removedResources[randomResource] = amount;
+                    resources[randomResource] -= amount;
+                    if (resources[randomResource] <= 0) {
+                        delete resources[randomResource];
+                    }
+                }
+            }
+
+            if (resources['Gold']) {
+                resources['Gold'] = Math.max(0, resources['Gold'] - 10);
+                removedResources['Gold'] = 10;
+            }
+
+            tombstoneMessage.innerHTML = `
+                <p>⚰️ ${avatar.emoji} ${avatar.race}</p>
+                <p>You send some resources to the departed's family</p>
+            `;
+
+            removedResources.innerHTML = Object.entries(removedResources)
+                .map(([resource, amount]) => `${resource}: ${amount}`)
+                .join('<br>');
+
+            tombstonePopup.style.display = 'block';
+            updateResourceBar();
+        }
+
+        function collectCombatReward() {
+    const x = parseInt(collectRewardButton.dataset.x);
+    const y = parseInt(collectRewardButton.dataset.y);
+    const key = `${x},${y}`;
+    const tile = mapData[key];
+
+    const goldReward = Math.floor(Math.random() * 50) + 50;
+    resources['Gold'] = (resources['Gold'] || 0) + goldReward;
+
+    delete mapData[key];
+    updateResourceBar();
+    drawMap();
+
+    logEvent(`Collected ${goldReward} gold from the defeated monster camp.`);
+    combatPopup.style.display = 'none';
+}
+
+        function showRecipes() {
+            recipesList.innerHTML = '';
+            recipes.forEach(recipe => {
+                const recipeItem = document.createElement('div');
+                const inputEmojis = recipe.inputs.map(input => {
+                    return input === 'Gold' ? '🪙' : terrainTypes.find(t => t.resource === input)?.emoji;
+                }).join(' + ');
+                recipeItem.textContent = `${inputEmojis} = ${recipe.outputEmoji}`;
+                recipesList.appendChild(recipeItem);
+            });
+            recipesPopup.style.display = 'block';
+        }
+
+        function handleClockLongPress(e) {
+            e.preventDefault();
+            let timer = setTimeout(() => {
+                showSaveLoadPopup(e);
+            }, 500);
+
+            e.target.addEventListener('touchend', () => {
+                clearTimeout(timer);
+            }, { once: true });
+        }
+
+        function showSaveLoadPopup(e) {
+            e.preventDefault();
+            saveLoadPopup.style.display = 'block';
+        }
+
+        function saveGame() {
+            const gameState = {
+                mapData,
+                resources,
+                avatars,
+                gameTime,
+                hasArmoryTile,
+                activeQuests
+            };
+
+            const jsonString = JSON.stringify(gameState);
+            localStorage.setItem('infiniteTerrainSave', jsonString);
+
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const currentDate = new Date();
+            const fileName = `Infinite-Terrain-${currentDate.toLocaleDateString('en-US', { weekday: 'long' })}-${currentDate.getDate()}-${currentDate.toLocaleDateString('en-US', { month: 'long' })}-${currentDate.getFullYear()}.jmap`;
+            a.download = fileName;
+            a.click();
+            URL.revokeObjectURL(url);
+
+            logEvent('Game saved successfully!');
+        }
+
+        function loadGame(e) {
+            const file = e.target.files[0];
+            if (file && file.name.endsWith('.jmap')) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    try {
+                        const gameState = JSON.parse(event.target.result);
+                        mapData = gameState.mapData;
+                        resources = gameState.resources;
+                        avatars = gameState.avatars;
+                        gameTime = gameState.gameTime;
+                        hasArmoryTile = gameState.hasArmoryTile;
+                        activeQuests = gameState.activeQuests || [];
+
+                        updateResourceBar();
+                        drawMap();
+                        logEvent('Game loaded successfully!');
+                    } catch (error) {
+                        logEvent('Error loading game: ' + error.message);
+                    }
+                };
+                reader.readAsText(file);
+            } else {
+                logEvent('Invalid file type. Please select a .jmap file.');
+            }
+        }
+
+        function startNewGame() {
+            localStorage.removeItem('infiniteTerrainSave');
+            location.reload();
+        }
+
+        function initDrag(e) {
+            document.addEventListener('mousemove', doDrag, false);
+            document.addEventListener('mouseup', stopDrag, false);
+        }
+
+        function doDrag(e) {
+            topRightDock.style.left = e.clientX + 'px';
+            topRightDock.style.top = e.clientY + 'px';
+        }
+
+        function stopDrag(e) {
+            document.removeEventListener('mousemove', doDrag, false);
+            document.removeEventListener('mouseup', stopDrag, false);
+            saveDockPosition();
+        }
+
+        function saveDockPosition() {
+            const position = {
+                left: topRightDock.style.left,
+                top: topRightDock.style.top
+            };
+            localStorage.setItem('dockPosition', JSON.stringify(position));
+        }
+
+        function loadDockPosition() {
+            const savedPosition = localStorage.getItem('dockPosition');
+            if (savedPosition) {
+                const position = JSON.parse(savedPosition);
+                topRightDock.style.left = position.left;
+                topRightDock.style.top = position.top;
+            }
+        }
+
+        function updateForgeRecipeList() {
+            forgeRecipeList.innerHTML = '';
+            recipes.forEach(recipe => {
+                if (recipe.inputs.every(input => resources[input] && resources[input] > 0)) {
+                    const recipeItem = document.createElement('div');
+                    recipeItem.textContent = `(${recipe.inputs.join(' + ')}) = ${recipe.output} ${recipe.outputEmoji}`;
+                    recipeItem.addEventListener('click', () => {
+                        const slots = document.querySelectorAll('.forgeSlot');
+                        slots[0].textContent = terrainTypes.find(t => t.resource === recipe.inputs[0])?.emoji || '🪙';
+                        slots[0].dataset.resource = recipe.inputs[0];
+                        slots[1].textContent = terrainTypes.find(t => t.resource === recipe.inputs[1])?.emoji || '🪙';
+                        slots[1].dataset.resource = recipe.inputs[1];
+                        checkForgeRecipe();
+                    });
+                    forgeRecipeList.appendChild(recipeItem);
+                }
+            });
+        }
+
+        function showHelp() {
+            helpContent.innerHTML = `
+                <h3>Game Controls</h3>
+                <ul>
+                    <li>Click and drag or touch and move to pan the map</li>
+                    <li>Pinch or use mouse wheel to zoom in/out</li>
+                    <li>Click on a card in your hand, then click on the map to place it</li>
+                    <li>Click on a placed tile for more information and to collect resources</li>
+                </ul>
+
+                <h3>Resource Bar</h3>
+                <p>The vertical bar on the left shows your collected resources. Each resource is represented by an emoji and a number.</p>
+
+                <h3>Forge</h3>
+                <p>Click the ⚒️ button to open the forge. Drag resources into the slots to craft new items.</p>
+
+                <h3>Move Tile</h3>
+                <p>Click the 👋 button to enter move tile mode. Select a tile to move, then select the destination.</p>
+
+                <h3>Collect All Resources</h3>
+                <p>Click the ⭕ button to collect resources from all tiles at once (available every 8 game hours).</p>
+
+                <h3>Road Building</h3>
+                <p>Click the 🛣️ button to enter road building mode. Select start and end points to build a road.</p>
+
+                <h3>Game Clock</h3>
+                <p>The game clock shows the current in-game time. Right-click or long-press to save/load the game.</p>
+
+                <h3>Armory</h3>
+                <p>The 🏯 tile is your armory. Click it to manage avatars, equipment, and quests.</p>
+            `;
+            helpPopup.style.display = 'block';
+        }
+
+        function showArmoryPopup() {
+            updateArmoryContent();
+            armoryPopup.style.display = 'block';
+        }
+
+        function updateArmoryContent() {
+            // Update Avatars
+            armoryAvatars.innerHTML = '<h4>Avatars</h4>';
+            avatars.forEach((avatar, index) => {
+                const avatarButton = document.createElement('button');
+                avatarButton.textContent = `${avatar.emoji} ${avatar.race}`;
+                avatarButton.classList.add('armoryButton');
+                avatarButton.addEventListener('click', () => showAvatarDetails(avatar, index));
+                armoryAvatars.appendChild(avatarButton);
+            });
+
+            // Update Equipment
+            armoryEquipment.innerHTML = '<h4>Equipment</h4>';
+            Object.entries(resources).forEach(([item, quantity]) => {
+                if (equipmentStats[item]) {
+                    const equipButton = document.createElement('button');
+                    equipButton.textContent = `${item} (${quantity})`;
+                    equipButton.classList.add('armoryButton');
+                    equipButton.addEventListener('click', () => showEquipmentDetails(item));
+                    armoryEquipment.appendChild(equipButton);
+                }
+            });
+
+            // Update Quests
+            armoryQuests.innerHTML = '<h4>Available Quests</h4>';
+            const availableQuests = quests.filter(quest => !activeQuests.some(aq => aq.name === quest.name));
+            availableQuests.slice(0, 5).forEach(quest => {
+                const questButton = document.createElement('button');
+                questButton.textContent = quest.name;
+                questButton.classList.add('armoryButton');
+                questButton.addEventListener('click', () => showQuestDetails(quest));
+                armoryQuests.appendChild(questButton);
+            });
+        }
+
+        function showAvatarDetails(avatar, index) {
+            let details = `
+                <h4>${avatar.emoji} ${avatar.race}</h4>
+                <p>HP: ${avatar.hp}</p>
+                <p>Attack: ${avatar.attack}</p>
+                <p>Defense: ${avatar.defense}</p>
+                <p>Mana: ${avatar.mana}</p>
+                <p>Luck: ${avatar.luck}</p>
+                <h5>Equipment:</h5>
+            `;
+            avatar.equipment.forEach(item => {
+                details += `<p>${item}</p>`;
+            });
+            armoryDetails.innerHTML = details;
+
+            // Add equip button if there's selected equipment
+            if (armoryDetails.dataset.selectedEquipment) {
+                const equipButton = document.createElement('button');
+                equipButton.textContent = `Equip ${armoryDetails.dataset.selectedEquipment}`;
+                equipButton.addEventListener('click', () => equipItem(index, armoryDetails.dataset.selectedEquipment));
+                armoryDetails.appendChild(equipButton);
+            }
+        }
+
+        function showEquipmentDetails(item) {
+            const stats = equipmentStats[item];
+            let details = `
+                <h4>${item}</h4>
+                <p>Quantity: ${resources[item]}</p>
+                <h5>Stats:</h5>
+            `;
+            Object.entries(stats).forEach(([stat, value]) => {
+                details += `<p>${stat}: +${value}</p>`;
+            });
+            armoryDetails.innerHTML = details;
+            armoryDetails.dataset.selectedEquipment = item;
+        }
+
+        function showQuestDetails(quest) {
+            let details = `
+                <h4>${quest.name}</h4>
+                <p>${quest.description}</p>
+                <p>Duration: ${quest.days} days</p>
+                <p>Reward: ${quest.reward}</p>
+            `;
+            armoryDetails.innerHTML = details;
+
+            const startQuestButton = document.createElement('button');
+            startQuestButton.textContent = 'Start Quest';
+            startQuestButton.addEventListener('click', () => startQuest(quest));
+            armoryDetails.appendChild(startQuestButton);
+        }
+
+        function equipItem(avatarIndex, item) {
+            if (resources[item] > 0) {
+                avatars[avatarIndex].equipment.push(item);
+                resources[item]--;
+                const stats = equipmentStats[item];
+                Object.entries(stats).forEach(([stat, value]) => {
+                    avatars[avatarIndex][stat] += value;
+                });
+                updateArmoryContent();
+                showAvatarDetails(avatars[avatarIndex], avatarIndex);
+                logEvent(`${avatars[avatarIndex].emoji} ${avatars[avatarIndex].race} equipped ${item}`);
+            } else {
+                logEvent(`Not enough ${item} to equip`);
+            }
+        }
+
+        function startQuest(quest) {
+            const availableAvatars = avatars.filter(avatar => !avatar.onQuest);
+            if (availableAvatars.length > 0) {
+                const avatar = availableAvatars[0];
+                avatar.onQuest = true;
+                const activeQuest = { ...quest, avatar, startTime: gameTime };
+                activeQuests.push(activeQuest);
+                logEvent(`${avatar.emoji} ${avatar.race} started the quest: ${quest.name}`);
+                updateArmoryContent();
+            } else {
+                logEvent('No available avatars to start the quest');
+            }
+        }
+
+        function checkActiveQuests() {
+            const completedQuests = activeQuests.filter(quest => {
+                const questDuration = quest.days * 24 * 60; // Convert days to minutes
+                return (gameTime - quest.startTime) >= questDuration;
+            });
+
+            completedQuests.forEach(quest => {
+                completeQuest(quest);
+            });
+
+            activeQuests = activeQuests.filter(quest => !completedQuests.includes(quest));
+        }
+
+        function completeQuest(quest) {
+            quest.avatar.onQuest = false;
+            resources[quest.reward] = (resources[quest.reward] || 0) + 1;
+            logEvent(`${quest.avatar.emoji} ${quest.avatar.race} completed the quest: ${quest.name} and received ${quest.reward}`);
+            updateResourceBar();
+        }
+
+        if (isPc) {
+            loadDockPosition();
+        }
+
+        initGame();
+    </script>
+</body>
+</html>
