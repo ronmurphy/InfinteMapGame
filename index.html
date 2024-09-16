@@ -32,6 +32,9 @@
             left: 50%;
             transform: translateX(-50%);
             display: flex;
+
+            align-items: center;
+
             gap: 5px;
             z-index: 10;
             background-color: rgba(255, 255, 255, 0.8);
@@ -370,13 +373,35 @@
             background-color: #D3D3D3;
             color: black;
         }
+        #mapLockButton {
+        width: 25px;
+        height: 40px;
+        background-color: #f0f0f0;
+        border: 1px solid #333;
+        border-radius: 3px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 16px;
+        cursor: pointer;
+        order: 2; /* Ensures it's first */
+    }
+
+    .separator {
+        order: 1; /* Ensures it's second to last */
+        margin: 0 5px;
+        font-size: 20px;
+        color: #333;
+    }
     </style>
 </head>
 <body>
     <div id="gameContainer">
         <canvas id="gameCanvas"></canvas>
         <div id="hand">
-            <button id="mapLockButton" class="card">🔐</button>
+            <!-- Cards will be inserted here dynamically -->
+    <span class="separator">|</span>
+    <button id="mapLockButton" class="card">🔐</button>
         </div>
         <div id="startMenu">
             <h2>Infinite Terrain</h2>
@@ -522,6 +547,20 @@
         const armoryQuests = document.getElementById('armoryQuests');
         const armoryDetails = document.getElementById('armoryDetails');
 
+        // const TRAVELER_SPEED = 0.01; // Tiles per frame
+const TRAVELER_EMOJIS = ['🚶', '🚶‍♂️', '🚶‍♀️'];
+const ANIMATION_FRAME_DURATION = 30; // Number of frames before changing the animation frame
+
+// const TRAVELER_EMOJIS = ['🚶', '🚶‍♂️', '🚶‍♀️'];
+const TRAVELER_SPEED = 0.05; // Tiles per minute (in game time)
+const ANIMATION_INTERVAL = 5; // Change animation every 5 game minutes
+
+let travelers = [];
+let animationFrameCounter = 0;
+
+
+
+
         let gameStarted = false;
         let mapData = {};
         let cameraOffset = { x: 0, y: 0 };
@@ -545,6 +584,7 @@
         let hasArmoryTile = false;
         let activeQuests = [];
         let isMapLocked = false;
+        let isTileMovementEnabled = false;
         let selectedTiles = [];
 
         const terrainTypes = [
@@ -690,10 +730,17 @@
             canvas.addEventListener('touchstart', onTouchStart);
             canvas.addEventListener('touchmove', onTouchMove);
             canvas.addEventListener('touchend', onTouchEnd);
+            const hand = document.getElementById('hand');
+
+    
+            const mapLockButton = document.getElementById('mapLockButton');
+    if (mapLockButton) {
+        mapLockButton.addEventListener('click', toggleMapLock);
+    }
 
             dealCards(7);
 
-            mapLockButton.addEventListener('click', toggleMapLock);
+  
 
             document.querySelectorAll('.closeButton').forEach(button => {
                 button.addEventListener('click', () => {
@@ -769,19 +816,33 @@
             hideAllPopups(); // Add this line
             requestAnimationFrame(gameLoop);
             // resources['Gold'] = 1000; // Start with 1000 gold
+
+
+
+
         }
 
         function gameLoop() {
-            const currentTime = Date.now();
-            const deltaTime = (currentTime - lastUpdateTime) / 1000; // Convert to seconds
-            lastUpdateTime = currentTime;
+    const currentTime = Date.now();
+    const deltaTime = (currentTime - lastUpdateTime) / 1000; // Convert to seconds
+    lastUpdateTime = currentTime;
 
-            updateGameTime(deltaTime);
-            drawMap();
-            checkActiveQuests();
-
-            requestAnimationFrame(gameLoop);
+    updateGameTime(deltaTime);
+    
+    // Spawn and move travelers during daytime (6 AM to 6 PM)
+    const gameHours = Math.floor((gameTime / 60) % 24);
+    if (gameHours >= 6 && gameHours < 18) {
+        if (Math.random() < 0.02) { // 2% chance each frame to try spawning
+            spawnTravelers();
         }
+        moveTravelers();
+    }
+    
+    drawMap();
+    checkActiveQuests();
+
+    requestAnimationFrame(gameLoop);
+}
 
         function updateGameTime(deltaTime) {
             gameTime += deltaTime * 5; // 2 real seconds = 10 game minutes
@@ -803,7 +864,11 @@
 
             // Move travelers on roads
             if (hours >= 6 && hours < 18) {
-                moveTravelers();
+                // spawnTravelers();
+                // moveTravelers();
+                if (totalMinutes % 1 === 0) { // Update every game minute
+        moveTravelers(1); // Pass 1 minute as the time passed
+    }
             }
         }
 
@@ -854,73 +919,193 @@
             }
         });
 
-        function dealCards(count) {
-            hand.innerHTML = '';
-            for (let i = 0; i < count; i++) {
-                const card = document.createElement('div');
-                card.className = 'card';
-                const terrain = terrainTypes[Math.floor(Math.random() * terrainTypes.length)];
-                card.textContent = terrain.emoji;
-                card.dataset.terrain = JSON.stringify(terrain);
-                card.addEventListener('click', selectCard);
-                hand.appendChild(card);
-            }
-        }
 
-        function selectCard(e) {
-            const clickedCard = e.target;
-            const terrain = JSON.parse(clickedCard.dataset.terrain);
-            
-            if (selectedCards.some(card => JSON.parse(card.dataset.terrain).name === terrain.name)) {
-                // Deselect all cards of this type
-                selectedCards = selectedCards.filter(card => JSON.parse(card.dataset.terrain).name !== terrain.name);
-                Array.from(hand.children).forEach(card => {
-                    if (JSON.parse(card.dataset.terrain).name === terrain.name) {
+
+        function dealCards(count) {
+    const hand = document.getElementById('hand');
+    const separator = hand.querySelector('.separator');
+    const mapLockButton = document.getElementById('mapLockButton');
+    
+    // Remove existing cards, but keep the map lock button and separator
+    while (hand.firstChild && hand.firstChild !== separator && hand.firstChild !== mapLockButton) {
+        hand.removeChild(hand.firstChild);
+    }
+    
+    for (let i = 0; i < count; i++) {
+        const card = document.createElement('div');
+        card.className = 'card';
+        const terrain = terrainTypes[Math.floor(Math.random() * terrainTypes.length)];
+        card.textContent = terrain.emoji;
+        
+        // Stringify the terrain data
+        const terrainJSON = JSON.stringify(terrain);
+        console.log("Dealing card. Terrain data:", terrainJSON);
+        
+        // Store terrain data as a custom attribute
+        card.setAttribute('data-terrain', terrainJSON);
+        
+        // Verify the attribute was set correctly
+        console.log("Verifying set attribute:", card.getAttribute('data-terrain'));
+
+        card.addEventListener('click', selectCard);
+        hand.insertBefore(card, separator || mapLockButton);
+    }
+
+    // Log all cards after dealing
+    console.log("All cards after dealing:", Array.from(hand.children).filter(card => card.id !== 'mapLockButton').map(card => ({
+        element: card,
+        terrain: card.getAttribute('data-terrain')
+    })));
+}
+
+function selectCard(e) {
+    const clickedCard = e.target;
+    console.log("Card clicked. Element:", clickedCard);
+
+    // Check if the clicked element is the map lock button
+    if (clickedCard.id === 'mapLockButton') {
+        console.log("Map lock button clicked, ignoring selection logic");
+        return; // Exit the function if it's the map lock button
+    }
+
+    console.log("Card classList:", clickedCard.classList);
+    console.log("Card attributes:", Array.from(clickedCard.attributes).map(attr => `${attr.name}: ${attr.value}`));
+
+    const terrainData = clickedCard.getAttribute('data-terrain');
+    console.log("Retrieved terrain data:", terrainData);
+    
+    if (!terrainData) {
+        console.error("No terrain data found on the clicked card");
+        return; // Exit the function if no terrain data
+    }
+
+    let terrain;
+    try {
+        terrain = JSON.parse(terrainData);
+    } catch (error) {
+        console.error("Error parsing terrain data:", error);
+        console.log("Problematic data:", terrainData);
+        return; // Exit the function if parsing fails
+    }
+    
+    console.log("Parsed terrain:", terrain);
+    
+    if (selectedCards.some(card => {
+        const cardTerrainData = card.getAttribute('data-terrain');
+        if (!cardTerrainData) return false;
+        try {
+            return JSON.parse(cardTerrainData).name === terrain.name;
+        } catch (error) {
+            console.error("Error parsing terrain data in selectedCards:", error);
+            return false;
+        }
+    })) {
+        // Deselect all cards of this type
+        selectedCards = selectedCards.filter(card => {
+            const cardTerrainData = card.getAttribute('data-terrain');
+            if (!cardTerrainData) return false;
+            try {
+                return JSON.parse(cardTerrainData).name !== terrain.name;
+            } catch (error) {
+                console.error("Error parsing terrain data in filter:", error);
+                return false; // Remove this card if parsing fails
+            }
+        });
+        Array.from(hand.children).forEach(card => {
+            if (card.classList.contains('card') && card.id !== 'mapLockButton') {
+                const cardTerrainData = card.getAttribute('data-terrain');
+                if (!cardTerrainData) return;
+                try {
+                    if (JSON.parse(cardTerrainData).name === terrain.name) {
                         card.style.border = '1px solid #333';
                     }
-                });
-            } else {
-                // Select all cards of this type
-                selectedCards = selectedCards.concat(Array.from(hand.children).filter(card => 
-                    JSON.parse(card.dataset.terrain).name === terrain.name
-                ));
-                selectedCards.forEach(card => card.style.border = '1px solid #ff0000');
+                } catch (error) {
+                    console.error("Error parsing terrain data in forEach:", error);
+                }
             }
-            
-            logEvent(`Selected ${terrain.name} cards (${selectedCards.length})`);
-        }
+        });
+    } else {
+        // Select all cards of this type
+        selectedCards = selectedCards.concat(Array.from(hand.children).filter(card => {
+            if (card.classList.contains('card') && card.id !== 'mapLockButton') {
+                const cardTerrainData = card.getAttribute('data-terrain');
+                if (!cardTerrainData) return false;
+                try {
+                    return JSON.parse(cardTerrainData).name === terrain.name;
+                } catch (error) {
+                    console.error("Error parsing terrain data in concat filter:", error);
+                    return false; // Don't include this card if parsing fails
+                }
+            }
+            return false;
+        }));
+        selectedCards.forEach(card => card.style.border = '1px solid #ff0000');
+    }
+    
+    logEvent(`Selected ${terrain.name} cards (${selectedCards.length})`);
+}
+        
 
-        function onCanvasClick(e) {
+function onCanvasClick(e) {
     const rect = canvas.getBoundingClientRect();
     const x = Math.floor((e.clientX - rect.left - cameraOffset.x) / (TILE_SIZE * cameraZoom));
     const y = Math.floor((e.clientY - rect.top - cameraOffset.y) / (TILE_SIZE * cameraZoom));
-
     console.log(`Canvas clicked at (${x}, ${y})`);
+    const key = `${x},${y}`;
+
+    // Handle different modes
+    if (isMapLocked && !isTileMovementEnabled) {
+        // Map is locked, but tile movement is not enabled
+        // You might want to add specific behavior here
+        return;
+    }
+
+    if (isTileMovementEnabled) {
+        handleMoveTile(e);
+        return;
+    }
 
     if (isRoadBuildingMode) {
         console.log('Handling road building');
         handleRoadBuilding(x, y);
-    } else if (selectedCards.length === 0) {
-        const key = `${x},${y}`;
+        return;
+    }
+
+    // Handle tile info display or tile placement
+    if (selectedCards.length === 0) {
         if (mapData[key]) {
             showTileInfo(x, y);
+        } else {
+            console.log(`No tile found at (${x}, ${y})`);
         }
     } else {
-        selectedCards.forEach((card, index) => {
-            placeTile(x + index, y, JSON.parse(card.dataset.terrain));
-            card.remove();
-        });
-
-        selectedCards = [];
-
-        if (hand.children.length === 0) {
-            dealCards(7);
-            checkForEvents();
-        }
-
-        drawMap();
+        placeTiles(x, y);
     }
+
+    drawMap();
 }
+
+function displayTileInfo(tile) {
+    const infoBox = document.getElementById('infoBox');
+    
+    // Update the content of the infoBox with the tile information
+    document.getElementById('tileType').textContent = `Type: ${tile.name || "Unknown"}`;
+    document.getElementById('tileTerrain').textContent = `Terrain: ${tile.emoji || "None"}`;
+    document.getElementById('tileTraveler').textContent = `Traveler: ${tile.traveler ? tile.traveler : "None"}`;
+    document.getElementById('tileIsRoad').textContent = `Is Road: ${tile.isRoad ? "Yes" : "No"}`;
+    document.getElementById('tileResources').textContent = `Resources: ${tile.resource || "None"}`;
+    
+    // Show the info box
+    infoBox.style.display = 'block';
+}
+
+// // Optional: Hide the info box when clicking elsewhere
+// document.body.addEventListener('click', function(event) {
+//     if (!event.target.closest('#infoBox') && !event.target.closest('canvas')) {
+//         document.getElementById('infoBox').style.display = 'none';
+//     }
+// });
+
 
         function placeTile(x, y, terrain) {
             const key = `${x},${y}`;
@@ -1154,7 +1339,8 @@
             setTimeout(() => drawMap(), 1000); // Remove highlight after 1 second
         }
 
-        function drawMap() {
+
+function drawMap() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save();
     ctx.translate(cameraOffset.x, cameraOffset.y);
@@ -1195,11 +1381,6 @@
                         ctx.font = `${TILE_SIZE * 0.4}px Arial`;
                         ctx.fillText(mapData[key].avatar.emoji, x * TILE_SIZE + TILE_SIZE * 0.8, y * TILE_SIZE + TILE_SIZE * 0.8);
                     }
-
-                    if (mapData[key].traveler) {
-                        ctx.font = `${TILE_SIZE * 0.4}px Arial`;
-                        ctx.fillText(mapData[key].traveler, x * TILE_SIZE + TILE_SIZE * 0.2, y * TILE_SIZE + TILE_SIZE * 0.2);
-                    }
                 }
 
                 if (selectedTiles.some(tile => tile.x === x && tile.y === y)) {
@@ -1215,98 +1396,86 @@
     }
 
     // Draw roads
-    // ctx.strokeStyle = 'white';
-    // ctx.lineWidth = 2;
-    // for (let x = startX; x <= endX; x++) {
-    //     for (let y = startY; y <= endY; y++) {
-    //         const key = `${x},${y}`;
-    //         if (mapData[key] && mapData[key].isRoad) {
-    //             const neighbors = [
-    //                 { dx: 0, dy: -1, dir: 'N' },
-    //                 { dx: 1, dy: 0, dir: 'E' },
-    //                 { dx: 0, dy: 1, dir: 'S' },
-    //                 { dx: -1, dy: 0, dir: 'W' }
-    //             ];
-    //             neighbors.forEach(({ dx, dy, dir }) => {
-    //                 const neighborKey = `${x + dx},${y + dy}`;
-    //                 if (mapData[neighborKey] && mapData[neighborKey].isRoad) {
-    //                     ctx.beginPath();
-    //                     ctx.moveTo(x * TILE_SIZE + TILE_SIZE / 2, y * TILE_SIZE + TILE_SIZE / 2);
-    //                     ctx.lineTo((x + dx) * TILE_SIZE + TILE_SIZE / 2, (y + dy) * TILE_SIZE + TILE_SIZE / 2);
-    //                     ctx.stroke();
-    //                 }
-    //             });
-    //         }
-    //     }
-    // }
-
     ctx.strokeStyle = 'white';
-ctx.lineWidth = 2;
-for (let x = startX; x <= endX; x++) {
-    for (let y = startY; y <= endY; y++) {
-        const key = `${x},${y}`;
-        if (mapData[key] && mapData[key].isRoad) {
-            const neighbors = [
-                { dx: 0, dy: -1, dir: 'N' },
-                { dx: 1, dy: -1, dir: 'NE' },
-                { dx: 1, dy: 0, dir: 'E' },
-                { dx: 1, dy: 1, dir: 'SE' },
-                { dx: 0, dy: 1, dir: 'S' },
-                { dx: -1, dy: 1, dir: 'SW' },
-                { dx: -1, dy: 0, dir: 'W' },
-                { dx: -1, dy: -1, dir: 'NW' }
-            ];
-            neighbors.forEach(({ dx, dy, dir }) => {
-                const neighborKey = `${x + dx},${y + dy}`;
-                if (mapData[neighborKey] && mapData[neighborKey].isRoad) {
-                    ctx.beginPath();
-                    if (dir.length === 1) {
-                        // Straight line for cardinal directions
-                        ctx.moveTo(x * TILE_SIZE + TILE_SIZE / 2, y * TILE_SIZE + TILE_SIZE / 2);
-                        ctx.lineTo((x + dx) * TILE_SIZE + TILE_SIZE / 2, (y + dy) * TILE_SIZE + TILE_SIZE / 2);
-                    } else {
-                        // Curve for diagonal directions
-                        const startX = x * TILE_SIZE + TILE_SIZE / 2;
-                        const startY = y * TILE_SIZE + TILE_SIZE / 2;
-                        const endX = (x + dx) * TILE_SIZE + TILE_SIZE / 2;
-                        const endY = (y + dy) * TILE_SIZE + TILE_SIZE / 2;
-                        const midX = (startX + endX) / 2;
-                        const midY = (startY + endY) / 2;
-                        ctx.moveTo(startX, startY);
-                        ctx.quadraticCurveTo(midX, midY, endX, endY);
+    ctx.lineWidth = 2;
+    for (let x = startX; x <= endX; x++) {
+        for (let y = startY; y <= endY; y++) {
+            const key = `${x},${y}`;
+            if (mapData[key] && mapData[key].isRoad) {
+                const neighbors = [
+                    { dx: 0, dy: -1, dir: 'N' },
+                    { dx: 1, dy: -1, dir: 'NE' },
+                    { dx: 1, dy: 0, dir: 'E' },
+                    { dx: 1, dy: 1, dir: 'SE' },
+                    { dx: 0, dy: 1, dir: 'S' },
+                    { dx: -1, dy: 1, dir: 'SW' },
+                    { dx: -1, dy: 0, dir: 'W' },
+                    { dx: -1, dy: -1, dir: 'NW' }
+                ];
+                neighbors.forEach(({ dx, dy, dir }) => {
+                    const neighborKey = `${x + dx},${y + dy}`;
+                    if (mapData[neighborKey] && mapData[neighborKey].isRoad) {
+                        ctx.beginPath();
+                        if (dir.length === 1) {
+                            // Straight line for cardinal directions
+                            ctx.moveTo(x * TILE_SIZE + TILE_SIZE / 2, y * TILE_SIZE + TILE_SIZE / 2);
+                            ctx.lineTo((x + dx) * TILE_SIZE + TILE_SIZE / 2, (y + dy) * TILE_SIZE + TILE_SIZE / 2);
+                        } else {
+                            // Curve for diagonal directions
+                            const startX = x * TILE_SIZE + TILE_SIZE / 2;
+                            const startY = y * TILE_SIZE + TILE_SIZE / 2;
+                            const endX = (x + dx) * TILE_SIZE + TILE_SIZE / 2;
+                            const endY = (y + dy) * TILE_SIZE + TILE_SIZE / 2;
+                            const midX = (startX + endX) / 2;
+                            const midY = (startY + endY) / 2;
+                            ctx.moveTo(startX, startY);
+                            ctx.quadraticCurveTo(midX, midY, endX, endY);
+                        }
+                        ctx.stroke();
                     }
-                    ctx.stroke();
-                }
-            });
+                });
+            }
         }
     }
-}
 
-            // Draw checkmark for valid resource combination
-            if (selectedCard) {
-                const tileX = Math.floor(mousePosition.x / TILE_SIZE);
-                const tileY = Math.floor(mousePosition.y / TILE_SIZE);
-                const selectedTerrain = JSON.parse(selectedCard.dataset.terrain);
-                const adjacentTiles = [
-                    { x: tileX - 1, y: tileY },
-                    { x: tileX + 1, y: tileY },
-                    { x: tileX, y: tileY - 1 },
-                    { x: tileX, y: tileY + 1 }
-                ];
+    // Draw travelers
+    // Draw travelers
+    travelers.forEach(traveler => {
+        const emoji = TRAVELER_EMOJIS[traveler.animationFrame];
+        ctx.font = `${TILE_SIZE * 0.6}px Arial`;
+        ctx.fillStyle = 'black';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const drawX = (traveler.x - startX) * TILE_SIZE;
+        const drawY = (traveler.y - startY) * TILE_SIZE;
+        ctx.fillText(emoji, drawX, drawY);
+    });
 
-                for (const tile of adjacentTiles) {
-                    const key = `${tile.x},${tile.y}`;
-                    if (mapData[key] && tileResourceCombinations[selectedTerrain.name]?.includes(mapData[key].name)) {
-                        ctx.font = `${TILE_SIZE* 0.6}px Arial`;
-                        ctx.fillStyle = 'green';
-                        ctx.fillText('✓', tileX * TILE_SIZE+ TILE_SIZE/ 2, tileY * TILE_SIZE+ TILE_SIZE/ 2);
-                        break;
-                    }
-                }
+    // Draw checkmark for valid resource combination
+    if (selectedCard) {
+        const tileX = Math.floor(mousePosition.x / TILE_SIZE);
+        const tileY = Math.floor(mousePosition.y / TILE_SIZE);
+        const selectedTerrain = JSON.parse(selectedCard.dataset.terrain);
+        const adjacentTiles = [
+            { x: tileX - 1, y: tileY },
+            { x: tileX + 1, y: tileY },
+            { x: tileX, y: tileY - 1 },
+            { x: tileX, y: tileY + 1 }
+        ];
+
+        for (const tile of adjacentTiles) {
+            const key = `${tile.x},${tile.y}`;
+            if (mapData[key] && tileResourceCombinations[selectedTerrain.name]?.includes(mapData[key].name)) {
+                ctx.font = `${TILE_SIZE * 0.6}px Arial`;
+                ctx.fillStyle = 'green';
+                ctx.fillText('✓', tileX * TILE_SIZE + TILE_SIZE / 2, tileY * TILE_SIZE + TILE_SIZE / 2);
+                break;
             }
-
-            ctx.restore();
         }
+    }
+
+    ctx.restore();
+}
 
         function onMouseDown(e) {
             if (isMapLocked) {
@@ -1370,11 +1539,31 @@ for (let x = startX; x <= endX; x++) {
             }, 3000);
         }
 
-        function toggleMapLock() {
-            isMapLocked = !isMapLocked;
-            mapLockButton.textContent = isMapLocked ? '🔒' : '🔐';
-            canvas.style.cursor = isMapLocked ? 'crosshair' : 'default';
-        }
+
+        function toggleMapLock(event) {
+    event.stopPropagation(); // Prevent the event from bubbling up
+    isMapLocked = !isMapLocked;
+    const mapLockButton = document.getElementById('mapLockButton');
+    if (mapLockButton) {
+        mapLockButton.textContent = isMapLocked ? '🔒' : '🔐';
+    }
+    canvas.style.cursor = isMapLocked ? 'crosshair' : 'default';
+    
+    // Disable or enable map movement based on lock state
+    if (isMapLocked) {
+        canvas.removeEventListener('mousedown', onMouseDown);
+        canvas.removeEventListener('mousemove', onMouseMove);
+        canvas.removeEventListener('mouseup', onMouseUp);
+        canvas.removeEventListener('wheel', onWheel);
+    } else {
+        canvas.addEventListener('mousedown', onMouseDown);
+        canvas.addEventListener('mousemove', onMouseMove);
+        canvas.addEventListener('mouseup', onMouseUp);
+        canvas.addEventListener('wheel', onWheel);
+    }
+}
+
+
 
         function onWheel(e) {
             e.preventDefault();
@@ -1628,15 +1817,15 @@ for (let x = startX; x <= endX; x++) {
         }
 
         function toggleMoveTileMode() {
-            isMoveTileMode = !isMoveTileMode;
-            moveTileButton.style.backgroundColor = isMoveTileMode ? '#ff0000' : '#f0f0f0';
-            if (isMoveTileMode) {
-                logEvent("Move tile mode activated. Select a tile to move.");
-            } else {
-                logEvent("Move tile mode deactivated.");
-                tileToMove = null;
-            }
-        }
+    isTileMovementEnabled = !isTileMovementEnabled;
+    moveTileButton.style.backgroundColor = isTileMovementEnabled ? '#ff0000' : '#f0f0f0';
+    if (isTileMovementEnabled) {
+        logEvent("Move tile mode activated. Select a tile to move.");
+    } else {
+        logEvent("Move tile mode deactivated.");
+        tileToMove = null;
+    }
+}
 
         function handleMoveTile(e) {
             const rect = canvas.getBoundingClientRect();
@@ -1688,6 +1877,27 @@ for (let x = startX; x <= endX; x++) {
                 }
             }
         }
+
+        function placeTiles(x, y) {
+    selectedCards.forEach((card, index) => {
+        try {
+            const terrain = JSON.parse(card.dataset.terrain);
+            placeTile(x + index, y, terrain);
+            card.remove();
+        } catch (error) {
+            console.error("Error parsing terrain data:", error);
+            console.log("Problematic data:", card.dataset.terrain);
+        }
+    });
+
+    selectedCards = [];
+
+    if (hand.children.length === 0) {
+        dealCards(7);
+        checkForEvents();
+    }
+    drawMap();
+}
 
         function collectAllResources() {
             const currentGameHours = Math.floor(gameTime / 60);
@@ -1892,31 +2102,173 @@ function buildRoad(start, end) {
             return null; // No path found
         }
 
-        function moveTravelers() {
-            const travelers = ['🚶', '🧳'];
-            const roads = Object.entries(mapData).filter(([_, tile]) => tile.name === 'Road');
+        function spawnTravelers() {
+    const roadEntrances = findRoadEntrances();
+    
+    roadEntrances.forEach(entrance => {
+        if (Math.random() < 0.1 && travelers.length < 10) { // 10% chance to spawn, max 10 travelers
+            const traveler = {
+                x: entrance.x + 0.5,
+                y: entrance.y + 0.5,
+                direction: getRandomDirection(),
+                animationFrame: 0,
+                lastAnimationUpdate: Math.floor(gameTime / ANIMATION_INTERVAL)
+            };
+            travelers.push(traveler);
+            console.log(`Traveler spawned at (${traveler.x}, ${traveler.y})`);
+        }
+    });
+}
 
-            if (roads.length === 0) return;
+function updateTravelers() {
+    if (Math.random() < 0.02) { // 2% chance each update to try spawning
+        spawnTravelers();
+    }
+}
 
-            // Remove existing travelers
-            for (const key in mapData) {
-                if (mapData[key].traveler) {
-                    delete mapData[key].traveler;
-                }
-            }
-
-            // Add new travelers
-            const numTravelers = Math.min(Math.floor(roads.length / 5) + 1, 5); // Add more travelers as roads increase
-            for (let i = 0; i < numTravelers; i++) {
-                const [startKey] = roads[Math.floor(Math.random() * roads.length)];
-                const [x, y] = startKey.split(',').map(Number);
-                const traveler = travelers[Math.floor(Math.random() * travelers.length)];
-                mapData[startKey].traveler = traveler;
-
-                // Move traveler along the road
-                setTimeout(() => moveTravelerAlongRoad(x, y, traveler), i * 1000);
+function findRoadEntrances() {
+    const entrances = [];
+    for (const key in mapData) {
+        const [x, y] = key.split(',').map(Number);
+        if (mapData[key].isRoad) {
+            const adjacentRoads = countAdjacentRoads(x, y);
+            if (adjacentRoads === 1 || adjacentRoads === 3 || adjacentRoads === 4) {
+                entrances.push({ x, y });
             }
         }
+    }
+    return entrances;
+}
+
+function countAdjacentRoads(x, y) {
+    const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+    return directions.filter(([dx, dy]) => {
+        const key = `${x + dx},${y + dy}`;
+        return mapData[key] && mapData[key].isRoad;
+    }).length;
+}
+
+function getRandomDirection() {
+    const directions = [[0, -1], [1, 0], [0, 1], [-1, 0]]; // Up, Right, Down, Left
+    return directions[Math.floor(Math.random() * directions.length)];
+}
+
+
+function moveTravelers() {
+    animationFrameCounter++;
+    
+    travelers.forEach(traveler => {
+        const [dx, dy] = traveler.direction;
+        traveler.x += dx * TRAVELER_SPEED;
+        traveler.y += dy * TRAVELER_SPEED;
+        
+        // Update animation frame
+        if (animationFrameCounter % ANIMATION_FRAME_DURATION === 0) {
+            traveler.animationFrame = (traveler.animationFrame + 1) % TRAVELER_EMOJIS.length;
+        }
+        
+        // Check if we need to change direction or remove traveler
+        const newTileX = Math.floor(traveler.x);
+        const newTileY = Math.floor(traveler.y);
+        const newTileKey = `${newTileX},${newTileY}`;
+        
+        if (!mapData[newTileKey] || !mapData[newTileKey].isRoad) {
+            const newDirection = findNewDirection(traveler);
+            if (newDirection) {
+                traveler.direction = newDirection;
+                traveler.x = newTileX + 0.5;
+                traveler.y = newTileY + 0.5;
+            } else {
+                // Remove traveler if no valid direction is found
+                const index = travelers.indexOf(traveler);
+                travelers.splice(index, 1);
+            }
+        }
+    });
+    
+    if (animationFrameCounter >= ANIMATION_FRAME_DURATION) {
+        animationFrameCounter = 0;
+    }
+}
+
+function moveTravelers(minutesPassed) {
+    travelers.forEach((traveler, index) => {
+        // Move traveler
+        const [dx, dy] = traveler.direction;
+        traveler.x += dx * TRAVELER_SPEED * minutesPassed;
+        traveler.y += dy * TRAVELER_SPEED * minutesPassed;
+
+        // Update animation
+        if (Math.floor(gameTime / ANIMATION_INTERVAL) !== traveler.lastAnimationUpdate) {
+            traveler.animationFrame = (traveler.animationFrame + 1) % TRAVELER_EMOJIS.length;
+            traveler.lastAnimationUpdate = Math.floor(gameTime / ANIMATION_INTERVAL);
+        }
+
+        // Check if traveler needs to change direction or be removed
+        const currentTileX = Math.floor(traveler.x);
+        const currentTileY = Math.floor(traveler.y);
+        const currentTileKey = `${currentTileX},${currentTileY}`;
+
+        if (!mapData[currentTileKey] || !mapData[currentTileKey].isRoad) {
+            const newDirection = findNewDirection(traveler);
+            if (newDirection) {
+                traveler.direction = newDirection;
+                traveler.x = currentTileX + 0.5;
+                traveler.y = currentTileY + 0.5;
+            } else {
+                // Remove traveler if no valid direction is found
+                travelers.splice(index, 1);
+            }
+        }
+    });
+}
+
+function findNewDirection(traveler) {
+    const directions = [[0, -1], [1, 0], [0, 1], [-1, 0]]; // Up, Right, Down, Left
+    const validDirections = directions.filter(([dx, dy]) => {
+        const newX = Math.floor(traveler.x) + dx;
+        const newY = Math.floor(traveler.y) + dy;
+        const key = `${newX},${newY}`;
+        return mapData[key] && mapData[key].isRoad;
+    });
+    
+    return validDirections.length > 0 ? validDirections[Math.floor(Math.random() * validDirections.length)] : null;
+}
+
+function moveTravelers() {
+    const keysToUpdate = [];
+
+    // Iterate through mapData and move travelers on road tiles
+    for (const key in mapData) {
+        const tile = mapData[key];
+        if (tile.isRoad && tile.traveler) {
+            const directions = [
+                { dx: 0, dy: -1 }, // north
+                { dx: 1, dy: 0 },  // east
+                { dx: 0, dy: 1 },  // south
+                { dx: -1, dy: 0 }  // west
+            ];
+
+            for (const { dx, dy } of directions) {
+                const nextTileKey = `${parseInt(key.split(',')[0]) + dx},${parseInt(key.split(',')[1]) + dy}`;
+                if (mapData[nextTileKey] && mapData[nextTileKey].isRoad && !mapData[nextTileKey].traveler) {
+                    // Prepare to move traveler to the next tile
+                    keysToUpdate.push({ currentKey: key, nextKey: nextTileKey, traveler: tile.traveler });
+                    break;
+                }
+            }
+        }
+    }
+
+    // Update traveler positions in batch
+    keysToUpdate.forEach(({ currentKey, nextKey, traveler }) => {
+        mapData[nextKey].traveler = traveler;
+        delete mapData[currentKey].traveler;
+    });
+
+    // Redraw the map after moving travelers
+    drawMap();
+}
 
         function moveTravelerAlongRoad(x, y, traveler) {
             const key = `${x},${y}`;
@@ -1924,6 +2276,8 @@ function buildRoad(start, end) {
 
             mapData[key].traveler = traveler;
             drawMap();
+
+
 
             const directions = [
                 { dx: 1, dy: 0 },
@@ -1945,6 +2299,8 @@ function buildRoad(start, end) {
                 delete mapData[key].traveler;
                 drawMap();
             }
+
+            console.log(`Traveler moved from ${currentKey} to ${nextKey}`);
         }
 
         function showCombatPopup(x, y) {
