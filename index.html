@@ -1082,6 +1082,12 @@ function onCanvasClick(e) {
         placeTiles(x, y);
     }
 
+
+    if (hand.children.length === 2) {
+                dealCards(7);
+                checkForEvents();
+            }
+
     drawMap();
 }
 
